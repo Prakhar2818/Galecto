@@ -1,5 +1,5 @@
-import { FastifyRequest, FastifyReply } from "fastify";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
+import { FastifyReply, FastifyRequest } from "fastify";
 
 function getRequestId(request: FastifyRequest) {
   const headerValue = request.headers["x-request-id"];
@@ -12,7 +12,7 @@ function getRequestId(request: FastifyRequest) {
     return headerValue[0];
   }
 
-  return uuidv4();
+  return randomUUID();
 }
 
 export async function requestContextMiddleware(

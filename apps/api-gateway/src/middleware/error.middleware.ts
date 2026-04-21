@@ -8,7 +8,7 @@ export function errorHandler(
   const context = (request as any).context;
   const requestId = context?.requestId || request.headers["x-request-id"];
 
-  reply.status(400).send({
+  reply.status(error.statusCode || 500).send({
     requestId,
     message: error.message || "Something went wrong",
   });

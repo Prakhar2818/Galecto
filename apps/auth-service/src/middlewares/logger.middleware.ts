@@ -1,5 +1,5 @@
-import { FastifyRequest, FastifyReply } from "fastify";
-import { logger } from "../../../../packages/logger/src/logger"
+import { FastifyReply, FastifyRequest } from "fastify";
+import { logger } from "../../../../packages/logger/src/logger";
 
 export async function loggingMiddleware(
   request: FastifyRequest,
