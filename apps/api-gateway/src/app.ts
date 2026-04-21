@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { routes } from "./routes";
 import { requestContextMiddleware } from "./middleware/requestContext";
 import { loggingMiddleware } from "./middleware/logger";
+import { authRoutes } from "./routes/auth.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -12,6 +13,7 @@ export function buildApp() {
   app.addHook("onRequest", loggingMiddleware);
 
   app.register(routes);
+  app.register(authRoutes)
 
   return app;
 }
