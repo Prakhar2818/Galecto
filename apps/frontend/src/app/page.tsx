@@ -1,236 +1,143 @@
-"use client";
+import React from 'react';
+import Link from 'next/link';
+import { Activity, ArrowRight, CheckCircle2, Globe, Shield, Zap } from 'lucide-react';
 
-
-import React, { useEffect, useState, useMemo } from 'react';
-import { Activity, BarChart3, Clock, Database, Server, X, Zap, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
-import TraceGraph from '@/components/TraceGraph';
-import ReactECharts from 'echarts-for-react';
-
-export default function Dashboard() {
-  const [traces, setTraces] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTrace, setSelectedTrace] = useState<any | null>(null);
-  const [traceTree, setTraceTree] = useState<any[] | null>(null);
-  const [loadingTrace, setLoadingTrace] = useState(false);
-
-  const fetchData = () => {
-    setLoading(true);
-    fetch('http://localhost:4002/api/v1/traces')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setTraces(data.data);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 10000); // Auto-refresh every 10s
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleViewTrace = (traceId: string) => {
-    setSelectedTrace(traceId);
-    setLoadingTrace(true);
-    fetch(`http://localhost:4002/api/v1/traces/${traceId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setTraceTree(data.tree);
-        }
-        setLoadingTrace(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoadingTrace(false);
-      });
-  };
-
-  // ECharts Options
-  const chartOptions = useMemo(() => ({
-    backgroundColor: 'transparent',
-    grid: { top: 20, right: 20, bottom: 40, left: 40 },
-    xAxis: {
-      type: 'category',
-      data: traces.slice(0, 15).map(t => new Date(t.start_time).toLocaleTimeString()),
-      axisLabel: { color: '#666', fontSize: 10 },
-      axisLine: { lineStyle: { color: '#333' } }
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { color: '#666', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#222' } }
-    },
-    series: [{
-      data: traces.slice(0, 15).map(t => t.event_count * 12), // Simulated latency
-      type: 'line',
-      smooth: true,
-      itemStyle: { color: '#3b82f6' },
-      areaStyle: {
-        color: {
-          type: 'linear',
-          x: 0, y: 0, x2: 0, y2: 1,
-          colorStops: [{ offset: 0, color: 'rgba(59, 130, 246, 0.4)' }, { offset: 1, color: 'transparent' }]
-        }
-      }
-    }]
-  }), [traces]);
-
+export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#050505] text-white p-8 font-sans">
-      {/* Navbar */}
-      <nav className="flex justify-between items-center mb-10 pb-6 border-b border-gray-900">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.4)]">
-            <Zap className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-white">
+      {/* Navigation */}
+      <nav className="flex justify-between items-center px-8 py-6 max-w-7xl mx-auto">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+            <Zap className="w-5 h-5 text-white fill-current" />
           </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight flex items-center gap-2 uppercase">
-              Antigravity <span className="text-blue-500">Core</span>
-            </h1>
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Enterprise Observability Platform</p>
-          </div>
+          <span className="text-xl font-black font-sora tracking-tight">Antigravity</span>
         </div>
-
-        <div className="flex gap-4">
-          <StatusIndicator icon={<ShieldCheck className="w-3 h-3" />} label="Security" status="Active" color="text-green-400" />
-          <StatusIndicator icon={<Database className="w-3 h-3" />} label="ClickHouse" status="Connected" color="text-blue-400" />
-          <button onClick={fetchData} className="p-2 hover:bg-gray-900 rounded-lg transition-colors border border-gray-800">
-            <RefreshCw className={`w-4 h-4 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+        <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
+          <Link href="#features" className="hover:text-emerald-600 transition-colors">Features</Link>
+          <Link href="#pricing" className="hover:text-emerald-600 transition-colors">Pricing</Link>
+          <Link href="/about" className="hover:text-emerald-600 transition-colors">About Us</Link>
+          <Link href="/contact" className="hover:text-emerald-600 transition-colors">Contact</Link>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/login" className="text-sm font-bold text-slate-900 hover:text-emerald-600 transition-colors">Login</Link>
+          <Link href="/signup" className="btn-primary !py-2 !px-5 text-sm">Get Started</Link>
         </div>
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-        {/* Left Column: Metrics & Charts */}
-        <div className="lg:col-span-4 space-y-8">
-          <div className="grid grid-cols-2 gap-4">
-            <StatCard icon={<Activity />} label="Total Events" value={traces.reduce((acc, t) => acc + t.event_count, 0).toLocaleString()} trend="+12%" />
-            <StatCard icon={<Clock />} label="Avg Latency" value="18.4ms" trend="-2ms" />
-          </div>
-
-          <div className="bg-[#0a0a0a] border border-gray-900 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Latency Performance</h3>
-            <ReactECharts option={chartOptions} style={{ height: '220px' }} />
-          </div>
-
-          <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/20 rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="text-blue-400 w-5 h-5" />
-              <h3 className="font-bold">System Insights</h3>
-            </div>
-            <p className="text-sm text-gray-400 leading-relaxed">
-              No anomalies detected in the last 24 hours. Traffic is currently 14% higher than the baseline.
-            </p>
-          </div>
+      {/* Hero Section */}
+      <section className="px-8 pt-20 pb-32 max-w-7xl mx-auto text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold mb-8 animate-bounce">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          Next-Gen Observability is Here
+        </div>
+        <h1 className="heading-hero text-slate-900 mb-8">
+          Distributed Tracing for the <span className="text-emerald-500">Modern Cloud</span>
+        </h1>
+        <p className="text-xl text-slate-500 max-w-2xl mx-auto mb-12 font-medium">
+          Uncover hidden bottlenecks and visualize complex microservice causality with a single line of code. Built for high-performance engineering teams.
+        </p>
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-20">
+          <Link href="/signup" className="btn-primary text-lg px-10 py-4 flex items-center gap-2">
+            Start Free Trial <ArrowRight className="w-5 h-5" />
+          </Link>
+          <Link href="/demo" className="btn-secondary text-lg px-10 py-4">
+            Watch Demo
+          </Link>
         </div>
 
-        {/* Right Column: Traces & Graph */}
-        <div className="lg:col-span-8 space-y-8">
-          {selectedTrace && (
-            <div className="bg-[#0a0a0a] border border-blue-500/30 rounded-3xl p-6 relative animate-in zoom-in-95 duration-500">
-              <button onClick={() => setSelectedTrace(null)} className="absolute top-6 right-6 p-2 bg-gray-900 hover:bg-gray-800 rounded-full transition-colors">
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-              <div className="mb-6">
-                <span className="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full text-[10px] font-bold uppercase tracking-wider mb-2 inline-block border border-blue-500/30">Trace Detail</span>
-                <h2 className="text-xl font-mono text-white opacity-90">{selectedTrace}</h2>
-              </div>
-              {loadingTrace ? (
-                <div className="h-[500px] flex items-center justify-center bg-black/50 rounded-2xl border border-gray-900">
-                  <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+        {/* Dashboard Mockup Preview */}
+        <div className="relative max-w-5xl mx-auto">
+          <div className="absolute inset-0 bg-emerald-500/10 blur-[120px] rounded-full" />
+          <div className="relative glass-card overflow-hidden border-slate-200/50 p-2">
+             <div className="bg-slate-100 rounded-[1.8rem] aspect-video flex items-center justify-center overflow-hidden border border-slate-200">
+                <img 
+                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070" 
+                  alt="Dashboard Preview" 
+                  className="w-full h-full object-cover opacity-80"
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                   <div className="glass-card p-8 flex items-center gap-4 scale-125 border-emerald-100">
+                      <Zap className="w-8 h-8 text-emerald-500" />
+                      <div className="text-left">
+                        <div className="text-xs font-black text-emerald-500 uppercase">Live Stream</div>
+                        <div className="text-xl font-bold">1.2k events/sec</div>
+                      </div>
+                   </div>
                 </div>
-              ) : <TraceGraph tree={traceTree || []} />}
-            </div>
-          )}
-
-          <div className="bg-[#0a0a0a] border border-gray-900 rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-8 border-b border-gray-900 flex justify-between items-center bg-gradient-to-r from-transparent to-gray-900/50">
-              <h2 className="text-xl font-bold">Real-time Stream</h2>
-              <span className="text-xs text-gray-500 font-mono tracking-tighter">LIVE UPDATING</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-gray-900/30 text-gray-500 text-[10px] uppercase font-black tracking-widest">
-                    <th className="px-8 py-5">Trace Reference</th>
-                    <th className="px-8 py-5">Services Involved</th>
-                    <th className="px-8 py-5">Depth</th>
-                    <th className="px-8 py-5">Status</th>
-                    <th className="px-8 py-5">Timestamp</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-900">
-                  {traces.map((trace) => (
-                    <tr key={trace.trace_id}
-                      onClick={() => handleViewTrace(trace.trace_id)}
-                      className="hover:bg-gray-800/20 cursor-pointer transition-all group">
-                      <td className="px-8 py-6">
-                        <div className="text-sm font-mono text-blue-400 group-hover:text-blue-300 transition-colors">
-                          {trace.trace_id.substring(0, 14)}...
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex gap-1.5 flex-wrap">
-                          {trace.services.slice(0, 3).map((s: string, i: number) => (
-                            <span key={i} className="px-2 py-0.5 rounded-md bg-gray-900 border border-gray-800 text-[9px] text-gray-500 font-bold uppercase">
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-sm font-mono text-gray-500">{trace.event_count}</td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                          <span className="text-[10px] font-bold text-green-500 uppercase">Success</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-xs text-gray-600 font-mono">
-                        {new Date(trace.start_time).toLocaleTimeString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+             </div>
           </div>
         </div>
-      </div>
-    </main>
-  );
-}
+      </section>
 
-function StatCard({ icon, label, value, trend }: any) {
-  return (
-    <div className="bg-[#0a0a0a] border border-gray-900 p-6 rounded-2xl hover:border-blue-500/50 transition-all group">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-gray-900 rounded-lg group-hover:bg-blue-600 transition-colors">{icon}</div>
-        <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{label}</span>
-      </div>
-      <div className="flex items-end justify-between">
-        <div className="text-2xl font-black tracking-tight">{value}</div>
-        <div className="text-[10px] font-bold text-green-500">{trend}</div>
-      </div>
+      {/* Features Section */}
+      <section id="features" className="bg-slate-50 py-32 px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl font-black font-sora mb-4">Engineered for Reliability</h2>
+            <p className="text-slate-500 font-medium">The most powerful observability stack ever built.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard 
+              icon={<Zap className="w-6 h-6 text-emerald-500" />}
+              title="Real-time Ingestion"
+              desc="Powered by ClickHouse and Kafka for sub-second latency visualization."
+            />
+            <FeatureCard 
+              icon={<Activity className="w-6 h-6 text-emerald-500" />}
+              title="Causality Graphs"
+              desc="Visualize every microservice hop with interactive React Flow diagrams."
+            />
+            <FeatureCard 
+              icon={<Shield className="w-6 h-6 text-emerald-500" />}
+              title="Enterprise Auth"
+              desc="Bank-grade security with multi-tenant RBAC and SSO integration."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof */}
+      <section className="py-20 px-8 max-w-7xl mx-auto text-center">
+        <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-12">Trusted by fast-growing startups</p>
+        <div className="flex flex-wrap justify-center items-center gap-12 opacity-40 grayscale">
+          <Globe className="w-32 h-8" />
+          <CheckCircle2 className="w-32 h-8" />
+          <Globe className="w-32 h-8" />
+          <CheckCircle2 className="w-32 h-8" />
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-slate-100 py-12 px-8">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex items-center gap-2">
+            <Zap className="w-6 h-6 text-emerald-500 fill-current" />
+            <span className="text-lg font-black font-sora">Antigravity</span>
+          </div>
+          <div className="flex gap-8 text-sm font-medium text-slate-500">
+            <Link href="/terms">Terms</Link>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/status">Status</Link>
+          </div>
+          <p className="text-sm text-slate-400 font-medium">© 2026 Antigravity Inc. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function StatusIndicator({ icon, label, status, color }: any) {
+function FeatureCard({ icon, title, desc }: any) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-900/50 border border-gray-800 rounded-xl">
-      <div className={color}>{icon}</div>
-      <div className="flex flex-col">
-        <span className="text-[8px] text-gray-600 uppercase font-black tracking-tighter">{label}</span>
-        <span className="text-[10px] font-bold">{status}</span>
+    <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all group">
+      <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
+        {icon}
       </div>
+      <h3 className="text-xl font-bold font-sora mb-4">{title}</h3>
+      <p className="text-slate-500 leading-relaxed font-medium">{desc}</p>
     </div>
   );
 }

@@ -18,17 +18,18 @@ interface TraceGraphProps {
 
 const ServiceNode = ({ data }: any) => {
   return (
-    <div className="px-4 py-2 shadow-lg rounded-md bg-gray-900 border-2 border-blue-500 min-w-[150px] cursor-pointer hover:bg-gray-800 transition-colors">
-      <Handle type="target" position={Position.Top} className="w-2 h-2 !bg-blue-500" />
+    <div className="px-6 py-4 shadow-xl rounded-2xl bg-white border-2 border-emerald-100 min-w-[200px] cursor-pointer hover:border-emerald-500 transition-all group relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 opacity-20" />
+      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
       <div className="flex flex-col">
-        <div className="text-xs font-bold text-blue-400 uppercase tracking-tighter">
+        <div className="text-[9px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-1">
           {data.service_name}
         </div>
-        <div className="text-[10px] text-gray-300 font-mono mt-1">
+        <div className="text-sm text-slate-900 font-bold tracking-tight font-sora">
           {data.event_name}
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-2 h-2 !bg-blue-500" />
+      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
     </div>
   );
 };
@@ -65,19 +66,19 @@ export default function TraceGraph({ tree }: TraceGraphProps) {
           source: parentId,
           target: id,
           animated: true,
-          style: { stroke: '#3b82f6' },
+          style: { stroke: '#10b981', strokeWidth: 3 },
         });
       }
 
       if (node.children && node.children.length > 0) {
         node.children.forEach((child: any, index: number) => {
-          traverse(child, x + (index - (node.children.length - 1) / 2) * 200, y + 100, id);
+          traverse(child, x + (index - (node.children.length - 1) / 2) * 280, y + 150, id);
         });
       }
     };
 
     tree.forEach((root, index) => {
-      traverse(root, index * 400, 0);
+      traverse(root, index * 600, 0);
     });
 
     return { nodes, edges };
@@ -88,7 +89,7 @@ export default function TraceGraph({ tree }: TraceGraphProps) {
   };
 
   return (
-    <div className="h-[500px] w-full bg-gray-950 rounded-xl border border-gray-800 flex relative overflow-hidden">
+    <div className="h-full w-full bg-slate-50/50 rounded-[2rem] flex relative overflow-hidden">
       <div className="flex-grow h-full">
         <ReactFlow
           nodes={nodes}
@@ -97,43 +98,47 @@ export default function TraceGraph({ tree }: TraceGraphProps) {
           onNodeClick={onNodeClick}
           fitView
         >
-          <Background color="#333" gap={20} />
+          <Background color="#cbd5e1" gap={25} size={1} />
           <Controls />
         </ReactFlow>
       </div>
 
       {/* Details Side-Panel */}
       {selectedNode && (
-        <div className="w-80 bg-gray-900 border-l border-gray-800 p-6 animate-in slide-in-from-right duration-300 overflow-y-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold">Span Details</h3>
-            <button onClick={() => setSelectedNode(null)} className="p-1 hover:bg-gray-800 rounded">
-              <X className="w-4 h-4" />
+        <div className="w-96 bg-white/95 backdrop-blur-2xl border-l border-slate-100 p-10 animate-in slide-in-from-right duration-500 overflow-y-auto shadow-2xl">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h3 className="text-xl font-black font-sora tracking-tighter">Span Insight</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Real-time telemetry</p>
+            </div>
+            <button onClick={() => setSelectedNode(null)} className="p-2 hover:bg-slate-50 rounded-full transition-all border border-slate-100">
+              <X className="w-5 h-5 text-slate-400" />
             </button>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-8">
+            <DetailItem label="Topology Node" value={selectedNode.service_name} color="text-emerald-600" />
+            <DetailItem label="Event Signature" value={selectedNode.event_name} color="text-slate-900" />
+            <DetailItem label="Cycle Timestamp" value={new Date(selectedNode.timestamp).toLocaleString()} color="text-slate-500" />
+            
             <div>
-              <label className="text-xs text-gray-500 uppercase font-bold tracking-widest">Service</label>
-              <div className="text-blue-400 font-mono">{selectedNode.service_name}</div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 uppercase font-bold tracking-widest">Event</label>
-              <div className="text-white">{selectedNode.event_name}</div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 uppercase font-bold tracking-widest">Time</label>
-              <div className="text-gray-300 text-sm">{new Date(selectedNode.timestamp).toLocaleString()}</div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 uppercase font-bold tracking-widest">Payload</label>
-              <pre className="mt-2 p-3 bg-black rounded-lg text-[10px] font-mono text-green-400 overflow-x-auto whitespace-pre-wrap border border-gray-800">
+              <label className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-4 block">Data Payload</label>
+              <pre className="p-6 bg-slate-900 rounded-3xl text-[11px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap leading-relaxed shadow-xl">
                 {JSON.stringify(JSON.parse(selectedNode.payload || '{}'), null, 2)}
               </pre>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DetailItem({ label, value, color }: any) {
+  return (
+    <div>
+      <label className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-1 block">{label}</label>
+      <div className={`${color} font-black font-sora text-lg tracking-tight`}>{value}</div>
     </div>
   );
 }

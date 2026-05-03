@@ -3,23 +3,43 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 0, 0, 0;
-  --background-end-rgb: 0, 0, 0;
+  --emerald-600: #059669;
+  --emerald-500: #10b981;
+  --emerald-50: #ecfdf5;
+  --slate-900: #0f172a;
+  --slate-600: #475569;
+  --slate-50: #f8fafc;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  color: var(--slate-900);
+  background-color: var(--slate-50);
+  font-family: var(--font-inter), sans-serif;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 active:scale-95;
   }
+
+  .btn-secondary {
+    @apply px-6 py-3 bg-white text-slate-900 font-bold rounded-2xl hover:bg-slate-50 transition-all border border-slate-200 active:scale-95;
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-[2rem];
+  }
+
+  .input-soft {
+    @apply w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all;
+  }
+
+  .heading-hero {
+    @apply text-5xl md:text-7xl font-black tracking-tight leading-[1.1];
+    font-family: var(--font-sora), sans-serif;
+  }
+}
+
+.font-sora {
+  font-family: var(--font-sora), sans-serif;
 }
