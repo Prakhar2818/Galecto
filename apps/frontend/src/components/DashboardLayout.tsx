@@ -1,15 +1,35 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Activity, FileText, RotateCcw, 
-  Bell, Zap, Settings, LogOut, Search, Mail, Users
+  Bell, Zap, Settings, LogOut, Search, Mail, Users, Loader2
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading, logout } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+          <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Validating Session...</span>
+        </div>
+      </div>
+    );
+  }
 
   const navItems = [
     { icon: <LayoutDashboard size={20} />, label: "Dashboard", href: "/dashboard" },
@@ -56,15 +76,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Settings size={20} />
             <span className="text-sm tracking-tight">Settings</span>
           </Link>
-          <Link href="/login" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all">
+          <button 
+            onClick={logout}
+            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
+          >
             <LogOut size={20} />
-            <span className="text-sm tracking-tight">Logout</span>
-          </Link>
+            <span className="text-sm tracking-tight font-medium">Logout</span>
+          </button>
           
           <div className="bg-slate-900 p-6 rounded-3xl mt-8 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/20 rounded-full blur-2xl group-hover:scale-150 transition-transform" />
-            <h4 className="text-white font-bold text-sm mb-2 relative z-10">Pro Plan Active</h4>
-            <button className="w-full py-2 bg-emerald-500 text-white text-xs font-bold rounded-xl relative z-10 hover:bg-emerald-600 transition-colors mt-2">
+            <h4 className="text-white font-bold text-sm mb-1 relative z-10">{user.organizationName || 'Pro Plan'}</h4>
+            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest relative z-10 mb-3 italic">Production Tier</p>
+            <button className="w-full py-2 bg-emerald-500 text-white text-xs font-bold rounded-xl relative z-10 hover:bg-emerald-600 transition-colors">
               Upgrade
             </button>
           </div>
@@ -95,10 +119,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
               <div className="text-right">
-                <div className="text-sm font-black font-sora tracking-tight">Totok Michael</div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Admin Control</div>
+                <div className="text-sm font-black font-sora tracking-tight">{user.email.split('@')[0]}</div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Admin</div>
               </div>
-              <img src="https://i.pravatar.cc/100?img=32" alt="Profile" className="w-10 h-10 rounded-xl border border-slate-100 shadow-sm" />
+              <img src={`https://i.pravatar.cc/100?u=${user.email}`} alt="Profile" className="w-10 h-10 rounded-xl border border-slate-100 shadow-sm" />
             </div>
           </div>
         </header>

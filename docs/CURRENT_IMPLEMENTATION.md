@@ -1,101 +1,58 @@
-# Distributed Observability & Debugging Platform
-**Current Implementation Status**
+# Antigravity: Enterprise Observability & Replay Platform
+**Current Implementation Status (Post-Emerald Upgrade)**
 
-This document outlines the current state, architecture, and implementation details of the enterprise-grade Distributed Observability Platform. 
+This document outlines the state of the Antigravity platform following the "Emerald Soft" transformation. The platform has evolved from a simple distributed tracer into a high-fidelity SaaS observability engine with causality replay.
 
-## 1. High-Level Architecture
-The platform has been upgraded from a simple CRUD app to a **Big Data Streaming Architecture** designed to handle thousands of events per second with multi-tenancy and strict data isolation.
+## 1. Core Architecture (The Engine)
+Antigravity utilizes a **Distributed Event Streaming Architecture** built for sub-second ingestion and recursive causality reconstruction.
 
 ### The Tech Stack
-*   **API Gateway & Services:** Node.js, Fastify, TypeScript
-*   **Internal Comm Standard:** OpenTelemetry (OTLP) formats (`traceId`, `spanId`)
-*   **Queue/Streaming:** Apache Kafka + Zookeeper (Local Docker)
-*   **Caching & Auth:** Redis (Local Docker)
-*   **Relational Database (Metadata):** PostgreSQL + Prisma (Local Docker)
-*   **OLAP Database (Big Data):** ClickHouse (Local Docker)
+*   **Edge Gateway:** Node.js + Fastify (Port 3001)
+*   **Microservices:** Auth (5001), Log (5002), Query (4002)
+*   **Data Backbone:** Apache Kafka (Streaming), ClickHouse (OLAP), PostgreSQL (Metadata)
+*   **Frontend:** Next.js 14 (Sora + Inter Typography), React Flow, ECharts
 
 ---
 
-## 2. Completed Phases
+## 2. Completed Implementation Phases
 
-### ✅ Phase 1: The Enterprise Foundation & Ingestion
-The ingestion pipeline is fully operational. When a client sends a log/trace, it flows through the system in milliseconds without ever touching the relational database.
+### ✅ Phase 1: SaaS Foundation & "Emerald" UI
+*   **Emerald Soft Design System:** Implemented a premium, high-contrast design language.
+*   **Typography:** SOC-2 compliant Sora headlines and Inter body text.
+*   **Global Auth Context:** Implemented `AuthProvider` to manage JWT sessions and multi-tenant isolation.
+*   **Unified API Client:** Created `apiClient.ts` with automatic JWT header injection and multi-service routing.
 
-#### `packages/types`
-*   Defined standard OpenTelemetry compliant interfaces (`IEvent`, `EventType`).
-*   Every event guarantees a `traceId`, `spanId`, and `tenantId`.
+### ✅ Phase 2: Distributed Tracing & Causality Graph
+*   **Hierarchical Stitching:** The `query-service` now reconstructs recursive request trees from flat ClickHouse spans.
+*   **React Flow Visualization:** Interactive, animated causality graphs in the `/traces` workspace.
+*   **Span Insights:** Deep-dive side panels for examining request payloads and cycle timestamps.
 
-#### `apps/api-gateway` (The Edge)
-*   **Auth Middleware:** Sits at the edge and intercepts all incoming requests. It checks the `Authorization: Bearer <API_KEY>` against an ultra-fast **Redis** cache. If valid, it attaches the `tenantId` (Organization ID).
-*   **Context Middleware:** Generates the initial `traceId` and `spanId` for the request journey.
-*   **Ingest Route:** Exposes `POST /api/v1/ingest` to accept raw logs/errors from external client services.
-*   **Kafka Producer:** Dumps everything instantly into the Kafka `events` topic.
+### ✅ Phase 3: Log Explorer & Deep Search
+*   **OLAP Search:** Connected `/logs` to the ClickHouse `events` table via the Query Service.
+*   **Filtering:** Real-time search by service, severity, and raw payload contents.
+*   **Ingestion:** Verified Kafka-to-ClickHouse pipeline with batch-merge logic.
 
-#### `apps/auth-service` (The Metadata Manager)
-*   **PostgreSQL & Prisma:** Manages `Organization`, `User`, and `ApiKey` models.
-*   **Multi-tenancy:** Users are bound to organizations.
-*   **Event Emitter:** Emits `USER_REGISTERED` and `USER_LOGGED_IN` traces to Kafka.
-
-#### `apps/log-service` (The Big Data Consumer)
-*   **Kafka Consumer:** Subscribes to the `events` topic using `kafkajs`.
-*   **ClickHouse Integration:** Batches incoming Kafka events and inserts them directly into the ClickHouse `events` table (using the `MergeTree` engine, optimized for lightning-fast time-series sorting by `tenant_id` and `timestamp`).
-
-#### `apps/query-service` (The Trace Retrieval Engine - Phase 3)
-*   **Fastify API:** Runs on port 4002.
-*   **ClickHouse Client Integration:** Directly queries the `events` table using optimized aggregate functions.
-*   **Causality Graph Stitching:** Implements a tree-building algorithm that reconstructs hierarchical distributed traces from flat event streams.
-*   **Endpoints:**
-    *   `GET /api/v1/traces`: Aggregates all events by `traceId`, returning the `start_time`, `end_time`, and list of involved microservices for each trace.
-    *   `GET /api/v1/traces/:traceId`: Retrieves the full causal timeline for a single trace, stitched into a hierarchical `tree` structure for frontend visualization.
-
-#### `apps/frontend` (The Enterprise Dashboard - Phase 4)
-*   **Next.js 14 & Tailwind CSS:** Built with a premium, high-performance dark mode aesthetic.
-*   **React Flow Integration:** Visualizes distributed traces as interactive causality graphs, showing the real-time journey of a request across microservices.
-*   **Lucide Icons:** Integrated for high-quality iconography and interactive UI elements.
-*   **Features:**
-    *   **Trace Browser:** A live-updating list of every distributed trace captured in ClickHouse.
-    *   **Causality Graph:** Clicking "View Graph" reconstructs the hierarchy of spans visually using React Flow.
-    *   **System Health:** Real-time connectivity status for ClickHouse and the Log Service.
+### ✅ Phase 4: The Replay Engine (The "Time Machine")
+*   **Metadata Capture:** API Gateway updated to capture **full headers and body** for every request in ClickHouse.
+*   **Shadow Proxy Logic:** Built `ReplayController` in the Gateway.
+    *   Fetches original metadata from ClickHouse by `traceId`.
+    *   Re-fires request in isolation with a `replay_` prefix.
+*   **Replay Workspace:** Side-by-side comparison UI in `/replay` for verifying fixes by comparing original vs. replayed trace trees.
 
 ---
 
-## 3. How to Run the Environment
+## 3. Deployment & Development
+The environment is managed via a modular workspace structure:
 
-1. **Start Infrastructure (Databases & Message Brokers)**
-   ```bash
-   cd infra/docker
-   docker-compose up -d
-   ```
-2. **Start Microservices (in separate terminals)**
-   ```bash
-   cd apps/auth-service && npm run dev
-   cd apps/log-service && npm run dev
-   cd apps/api-gateway && npm run dev     # (Runs on Port 3001)
-   cd apps/query-service && npm run dev   # (Runs on Port 4002)
-   cd apps/frontend && npm run dev        # (Dashboard on Port 3000)
-   ```
-
-### 4. How to Test Data Ingestion
-1. **Seed the Database**
-   Run the seed script to create a dummy Organization and cache its API Key in Redis:
-   ```bash
-   cd apps/auth-service
-   npx ts-node src/seed.ts
-   ```
-2. **Fire a Request**
-   Use the API key generated by the seed script to hit the gateway:
-   ```bash
-   curl -X POST http://localhost:3001/api/v1/ingest \
-   -H "Authorization: Bearer <YOUR_API_KEY>" \
-   -H "Content-Type: application/json" \
-   -d "{\"service\":\"billing-service\", \"error\":\"Payment Failed\"}"
-   ```
-3. **Verify in Dashboard**
-   Visit **http://localhost:3000** and click "View Graph" on the new trace to see the React Flow visualization.
+| Service | Port | Responsibility |
+| :--- | :--- | :--- |
+| `api-gateway` | 3001 | Ingestion, Auth Edge, Replay Controller |
+| `query-service` | 4002 | Trace Stitching, Log Search, Anomaly Detection |
+| `auth-service` | 5001 | User/Org Metadata, JWT Issuance |
+| `frontend` | 3000 | SaaS Dashboard, Visualizations |
 
 ---
 
-## 5. Next Steps
-*   **Phase 5 (Alerting Engine):** Build a service that processes Kafka events in real-time to trigger alerts (Slack, Email, Webhooks) when error thresholds are crossed.
-*   **Phase 6 (Advanced Analytics):** Use ClickHouse's aggregate functions to build deep performance insights (p99 latency, error rates by service).
-
+## 4. Next Roadmap Goals
+*   **Phase 5 (Alerting Service):** A standalone worker to process Kafka events and trigger thresholds (Slack/Email).
+*   **Phase 6 (Live Monitoring):** Real-time "Pulse" visualizer using WebSockets for live cluster health.

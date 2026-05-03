@@ -1,10 +1,9 @@
 {
-  "name": "api-gateway",
+  "name": "alert-service",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev src/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,12 +11,17 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@clickhouse/client": "^1.18.3",
+    "@fastify/cors": "^11.2.0",
+    "@prisma/client": "^7.8.0",
     "axios": "^1.16.0",
+    "dotenv": "^17.4.2",
     "fastify": "^5.8.5",
-    "reflect-metadata": "^0.2.2",
-    "tsyringe": "^4.10.0",
-    "undici": "^8.1.0",
-    "uuid": "^14.0.0"
+    "kafkajs": "^2.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "prisma": "^7.8.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^6.0.3"
   }
 }

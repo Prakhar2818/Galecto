@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import jwt from "@fastify/jwt";
 import { authRoutes } from "./routes/auth.routes";
+import { projectRoutes } from "./routes/project.routes";
 import { errorHandler } from "./middlewares/error.middleware";
 import { requestContextMiddleware } from "./middlewares/request-context.middleware";
 import { loggingMiddleware, responseLoggingMiddleware } from "./middlewares/logger.middleware";
@@ -19,6 +20,7 @@ export function buildApp() {
   app.setErrorHandler(errorHandler);
 
   app.register(authRoutes, { prefix: "/auth" });
+  app.register(projectRoutes, { prefix: "/projects" });
 
   return app;
 }

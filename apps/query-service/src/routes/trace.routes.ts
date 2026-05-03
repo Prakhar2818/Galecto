@@ -6,7 +6,7 @@ export async function traceRoutes(fastify: FastifyInstance) {
 
   // Get a list of traces (paginated/filtered)
   fastify.get("/", async (req, reply) => controller.listTraces(req, reply));
-
-  // Get full causality graph/timeline for a specific traceId
+  fastify.get("/anomalies", async (req, reply) => controller.listAnomalies(req, reply));
+  fastify.get("/metrics", async (req, reply) => controller.getPerformanceMetrics(req, reply));
   fastify.get("/:traceId", async (req, reply) => controller.getTraceDetails(req, reply));
 }

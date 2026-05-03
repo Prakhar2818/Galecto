@@ -1,8 +1,41 @@
-import React from 'react';
+"use client";
+
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Github, Mail, Zap } from 'lucide-react';
+import { Github, Mail, Zap, Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { login } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await apiFetch('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (data.success) {
+        login(data.token, data.user);
+      } else {
+        setError(data.error || 'Login failed. Please check your credentials.');
+      }
+    } catch (err) {
+      setError('Connection refused. Is the API Gateway running?');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       {/* Left side: Testimonial & Branding */}
@@ -63,21 +96,45 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <form className="space-y-6">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-100 text-red-600 text-sm font-bold rounded-2xl animate-shake">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="text-sm font-black text-slate-400 uppercase tracking-widest px-2">Work Email</label>
-              <input type="email" placeholder="name@company.com" className="input-soft" />
+              <input 
+                type="email" 
+                placeholder="name@company.com" 
+                className="input-soft" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <div className="flex justify-between items-center px-2">
                 <label className="text-sm font-black text-slate-400 uppercase tracking-widest">Password</label>
                 <Link href="/forgot" className="text-xs font-bold text-emerald-600">Forgot?</Link>
               </div>
-              <input type="password" placeholder="••••••••" className="input-soft" />
+              <input 
+                type="password" 
+                placeholder="••••••••" 
+                className="input-soft" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-            <Link href="/dashboard" className="btn-primary w-full text-center block py-4 text-lg">
-              Sign In
-            </Link>
+            <button 
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full text-center block py-4 text-lg flex items-center justify-center gap-3"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
+            </button>
           </form>
 
           <p className="text-center text-sm font-medium text-slate-500">

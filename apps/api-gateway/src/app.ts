@@ -11,7 +11,7 @@ export function buildApp() {
   });
 
   app.addHook("onRequest", requestContextMiddleware);
-  app.addHook("onRequest", loggingMiddleware);
+  app.addHook("preHandler", loggingMiddleware);
   app.addHook("onResponse", responseLoggingMiddleware);
   app.setErrorHandler(errorHandler);
 

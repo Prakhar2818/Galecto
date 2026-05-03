@@ -3,40 +3,43 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import TraceGraph from '@/components/TraceGraph';
-import { Activity, RefreshCw, X, ChevronRight, Search, Filter } from 'lucide-react';
+import { Activity, RefreshCw, X, ChevronRight, Search, Filter, Loader2 } from 'lucide-react';
+import { queryFetch } from '@/lib/apiClient';
 
 export default function TracesPage() {
   const [traces, setTraces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTrace, setSelectedTrace] = useState<any | null>(null);
+  const [selectedTrace, setSelectedTrace] = useState<string | null>(null);
   const [traceTree, setTraceTree] = useState<any[] | null>(null);
   const [loadingTrace, setLoadingTrace] = useState(false);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     setLoading(true);
-    fetch('http://localhost:4002/api/v1/traces')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setTraces(data.data);
-        setLoading(false);
-      })
-      .catch(err => setLoading(false));
+    try {
+      const data = await queryFetch('/api/v1/traces');
+      if (data.success) setTraces(data.data);
+    } catch (err) {
+      console.error('Failed to fetch traces', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const handleViewTrace = (traceId: string) => {
+  const handleViewTrace = async (traceId: string) => {
     setSelectedTrace(traceId);
     setLoadingTrace(true);
-    fetch(`http://localhost:4002/api/v1/traces/${traceId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setTraceTree(data.tree);
-        setLoadingTrace(false);
-      })
-      .catch(err => setLoadingTrace(false));
+    try {
+      const data = await queryFetch(`/api/v1/traces/${traceId}`);
+      if (data.success) setTraceTree(data.tree);
+    } catch (err) {
+      console.error('Failed to fetch trace tree', err);
+    } finally {
+      setLoadingTrace(false);
+    }
   };
 
   return (
@@ -65,7 +68,12 @@ export default function TracesPage() {
               <Filter size={16} className="text-slate-400 cursor-pointer hover:text-emerald-500 transition-colors" />
             </div>
             <div className="overflow-y-auto max-h-[700px]">
-              {traces.map((t) => (
+              {loading && traces.length === 0 ? (
+                <div className="p-20 flex flex-col items-center justify-center gap-4">
+                  <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Querying ClickHouse...</span>
+                </div>
+              ) : traces.map((t) => (
                 <div 
                   key={t.trace_id} 
                   onClick={() => handleViewTrace(t.trace_id)}
@@ -83,10 +91,15 @@ export default function TracesPage() {
                         <span key={s} className="px-2 py-0.5 bg-white border border-slate-100 text-[8px] font-black uppercase rounded-md text-slate-500">{s}</span>
                       ))}
                     </div>
-                    <div className="text-xs font-bold text-slate-400">{t.event_count} spans</div>
+                    <div className="text-xs font-bold text-slate-400">{t.event_count} events</div>
                   </div>
                 </div>
               ))}
+              {!loading && traces.length === 0 && (
+                <div className="p-20 text-center text-slate-400 font-bold text-sm uppercase tracking-widest">
+                  No traces found in the last 24h.
+                </div>
+              )}
             </div>
           </div>
         </div>

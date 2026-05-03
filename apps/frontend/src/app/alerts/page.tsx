@@ -1,123 +1,132 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Bell, AlertTriangle, CheckCircle2, Clock, Filter, Plus } from 'lucide-react';
+import { 
+  Bell, AlertTriangle, CheckCircle2, Clock, 
+  ChevronRight, Filter, Settings, RefreshCw, Loader2 
+} from 'lucide-react';
+import { alertFetch } from '@/lib/apiClient';
 
 export default function AlertsPage() {
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAlerts = async () => {
+    setLoading(true);
+    try {
+      const data = await alertFetch('/api/v1/alerts');
+      if (data.success) setAlerts(data.data);
+    } catch (err) {
+      console.error('Failed to fetch alerts', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 5000); // Auto refresh
+    return () => clearInterval(interval);
+  }, []);
+
+  const resolveAlert = async (id: string) => {
+    try {
+      await alertFetch(`/api/v1/alerts/${id}/resolve`, { method: 'POST' });
+      fetchAlerts();
+    } catch (err) {
+      console.error('Failed to resolve alert', err);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="flex justify-between items-end mb-10">
         <div>
-          <h2 className="text-3xl font-black font-sora tracking-tight">System Alerts</h2>
-          <p className="text-slate-500 font-medium">Real-time threshold monitoring and incident history.</p>
+          <h2 className="text-3xl font-black font-sora tracking-tight">Active Alerts</h2>
+          <p className="text-slate-500 font-medium">Real-time anomaly detection and incident management.</p>
         </div>
         <div className="flex gap-3">
-          <button className="btn-primary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20">
-            Create Rule <Plus className="w-4 h-4" />
+          <button onClick={fetchAlerts} className="btn-secondary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2">
+            Refresh <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button className="btn-primary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2">
+            Alert Settings <Settings className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-12 gap-8">
-        {/* Active Alerts */}
-        <div className="col-span-8 space-y-6">
-           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-4">Active Incidents</h3>
-           <div className="space-y-4">
-              <AlertCard 
-                title="P99 Latency Spike" 
-                desc="Service 'billing-service' exceeds 500ms latency threshold." 
-                severity="CRITICAL" 
-                time="2 mins ago"
-                color="bg-red-500"
-              />
-              <AlertCard 
-                title="Elevated Error Rate" 
-                desc="Auth Service returning 5xx errors for /v1/validate." 
-                severity="WARNING" 
-                time="15 mins ago"
-                color="bg-orange-500"
-              />
-           </div>
-
-           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-4 pt-8">Resolved History</h3>
-           <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="text-slate-400 text-[10px] font-black uppercase tracking-widest bg-slate-50/50">
-                    <th className="px-8 py-5">Alert Rule</th>
-                    <th className="px-8 py-5">Resolution</th>
-                    <th className="px-8 py-5">Duration</th>
-                    <th className="px-8 py-5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                   <ResolvedRow title="Memory Leak" res="Auto-scaled" dur="12m" />
-                   <ResolvedRow title="CPU Throttling" res="Manual Restart" dur="4m" />
-                   <ResolvedRow title="DB Connectivity" res="Fixed" dur="45m" />
-                </tbody>
-              </table>
-           </div>
+        {/* Alerts List */}
+        <div className="col-span-8 space-y-4">
+          {loading && alerts.length === 0 ? (
+            <div className="bg-white p-20 rounded-[2.5rem] border border-slate-100 flex flex-col items-center justify-center gap-4 text-center">
+               <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+               <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Watching Kafka Streams...</span>
+            </div>
+          ) : alerts.length === 0 ? (
+            <div className="bg-white p-20 rounded-[2.5rem] border border-slate-100 flex flex-col items-center justify-center gap-4 text-center">
+               <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+               </div>
+               <h3 className="text-xl font-black font-sora">All Systems Clear</h3>
+               <p className="text-slate-400 max-w-xs">No anomalies detected in the last 24 hours. Your services are running within normal parameters.</p>
+            </div>
+          ) : alerts.map((alert) => (
+            <div 
+              key={alert.id}
+              className={`bg-white p-8 rounded-[2.5rem] border-2 transition-all flex items-center gap-8 ${alert.status === 'RESOLVED' ? 'border-slate-50 opacity-60' : 'border-red-100 shadow-lg shadow-red-500/5'}`}
+            >
+              <div className={`p-4 rounded-2xl ${alert.status === 'RESOLVED' ? 'bg-slate-100' : 'bg-red-100 animate-pulse'}`}>
+                {alert.type === 'ERROR' ? <AlertTriangle className="text-red-600" /> : <Clock className="text-orange-600" />}
+              </div>
+              <div className="flex-grow">
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{alert.service}</span>
+                  <span className="text-[10px] font-bold text-slate-300">•</span>
+                  <span className="text-[10px] font-bold text-slate-400">{new Date(alert.timestamp).toLocaleTimeString()}</span>
+                </div>
+                <h4 className="text-lg font-black font-sora tracking-tight text-slate-900">{alert.message}</h4>
+                <div className="text-xs font-mono text-slate-400 mt-2">Trace ID: {alert.traceId}</div>
+              </div>
+              {alert.status === 'ACTIVE' && (
+                <button 
+                  onClick={() => resolveAlert(alert.id)}
+                  className="px-6 py-3 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-colors"
+                >
+                  Resolve
+                </button>
+              )}
+            </div>
+          ))}
         </div>
 
-        {/* Rules Summary */}
-        <div className="col-span-4 space-y-8">
-           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-              <h3 className="font-bold font-sora mb-6">Monitoring Rules</h3>
-              <div className="space-y-4">
-                 <RuleItem label="Latency > 500ms" active />
-                 <RuleItem label="Error Rate > 5%" active />
-                 <RuleItem label="Node Down" active />
-                 <RuleItem label="Custom: Auth Check" />
-              </div>
-           </div>
+        {/* Sidebar Rules */}
+        <div className="col-span-4 space-y-6">
+          <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white">
+            <h3 className="text-lg font-black font-sora mb-6 flex items-center gap-3">
+              <Filter className="text-emerald-500" size={20} /> Active Rules
+            </h3>
+            <div className="space-y-6">
+              <RuleItem title="Critical Error Rate" desc="Triggered if any service returns 4xx/5xx status." />
+              <RuleItem title="P99 Latency Breach" desc="Triggered if request duration exceeds 500ms." />
+              <RuleItem title="OOM Prevention" desc="Triggered if pod memory usage > 85%." />
+            </div>
+            <button className="w-full mt-10 py-4 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-400 transition-colors">
+              Create New Rule
+            </button>
+          </div>
         </div>
       </div>
     </DashboardLayout>
   );
 }
 
-function AlertCard({ title, desc, severity, time, color }: any) {
+function RuleItem({ title, desc }: any) {
   return (
-    <div className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-slate-100 flex gap-6 group hover:border-emerald-100 transition-all">
-      <div className={`w-1.5 rounded-full ${color}`} />
-      <div className="flex-grow">
-        <div className="flex justify-between items-start mb-2">
-          <h4 className="text-lg font-black font-sora text-slate-900">{title}</h4>
-          <span className="text-[10px] font-bold text-slate-400 uppercase">{time}</span>
-        </div>
-        <p className="text-sm text-slate-500 font-medium mb-4">{desc}</p>
-        <div className="flex items-center gap-4">
-          <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase text-white ${color}`}>{severity}</span>
-          <button className="text-xs font-bold text-emerald-600 hover:underline">View Trace</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ResolvedRow({ title, res, dur }: any) {
-  return (
-    <tr className="hover:bg-slate-50 transition-colors">
-      <td className="px-8 py-6 font-bold text-sm">{title}</td>
-      <td className="px-8 py-6">
-        <div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase">
-          <CheckCircle2 size={14} /> {res}
-        </div>
-      </td>
-      <td className="px-8 py-6 text-xs text-slate-400 font-bold">{dur}</td>
-      <td className="px-8 py-6 text-right">
-        <button className="text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 transition-colors">Analyze</button>
-      </td>
-    </tr>
-  );
-}
-
-function RuleItem({ label, active }: any) {
-  return (
-    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-      <span className="text-xs font-bold text-slate-700">{label}</span>
-      <div className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-slate-300'}`} />
+    <div className="border-l-2 border-emerald-500/30 pl-4 py-1">
+      <div className="text-sm font-bold text-slate-100">{title}</div>
+      <div className="text-[10px] text-slate-400 font-medium mt-1">{desc}</div>
     </div>
   );
 }

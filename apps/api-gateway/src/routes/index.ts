@@ -5,12 +5,23 @@ import { sendEvent } from "../../../../packages/kafka/src/producer";
 import { EventType, IEvent } from "../../../../packages/types/src/index";
 import { v4 as uuidv4 } from "uuid";
 
+import { ReplayController } from "../controllers/replay.controller";
+
 export async function routes(fastify: FastifyInstance) {
   const controller = new HealthController();
+  const replayController = new ReplayController();
 
   fastify.get("/health", async () => {
     return controller.getHealth();
   });
+
+  fastify.post(
+    "/api/v1/replay/:traceId",
+    { preHandler: [authMiddleware] },
+    async (request, reply) => {
+      return replayController.executeReplay(request, reply);
+    }
+  );
 
   fastify.post(
     "/api/v1/ingest",

@@ -11,6 +11,10 @@ async function start() {
     await initializeClickHouseSchemas();
     app.log.info("Initialized ClickHouse schemas");
 
+    // Start background maintenance workers
+    const { startRetentionWorker } = require("./workers/retention.worker");
+    startRetentionWorker();
+
     await createConsumer("log-service-group", "events", async (event: IEvent) => {
       app.log.info({ traceId: event.traceId, type: event.type }, "Received event");
       

@@ -25,7 +25,12 @@ export async function loggingMiddleware(
     service: "api-gateway",
     name: `API_REQUEST ${request.method} ${request.url}`,
     timestamp: Date.now(),
-    payload: { url: request.url, method: request.method },
+    payload: { 
+      url: request.url, 
+      method: request.method,
+      headers: request.headers,
+      body: request.body
+    },
   };
   
   sendEvent("events", event).catch(err => logger.error({ err }, "Failed to send Kafka event"));

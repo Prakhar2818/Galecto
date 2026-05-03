@@ -1,90 +1,137 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Zap, Activity, Globe, Server, Cpu, Database } from 'lucide-react';
+import { Activity, Globe, Cpu, Server, Database, Loader2, Zap } from 'lucide-react';
+import { queryFetch } from '@/lib/apiClient';
 
 export default function MonitoringPage() {
+  const [metrics, setMetrics] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMetrics = async () => {
+    setLoading(true);
+    try {
+      const data = await queryFetch('/api/v1/traces/metrics');
+      if (data.success) setMetrics(data.data);
+    } catch (err) {
+      console.error('Failed to fetch metrics', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 10000); // 10s refresh
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <DashboardLayout>
       <div className="flex justify-between items-end mb-10">
         <div>
-          <h2 className="text-3xl font-black font-sora tracking-tight">Live Monitoring</h2>
-          <p className="text-slate-500 font-medium">Sub-second telemetry updates via WebSocket pulse.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-          <span className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">System Live</span>
+          <h2 className="text-3xl font-black font-sora tracking-tight">System Monitoring</h2>
+          <p className="text-slate-500 font-medium">Real-time health telemetry across your distributed nodes.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-12 gap-8">
-        {/* Main Live Flow Visualizer Placeholder */}
-        <div className="col-span-12 lg:col-span-9">
-           <div className="bg-slate-900 rounded-[3rem] p-12 h-[600px] relative overflow-hidden shadow-2xl shadow-emerald-500/10">
-              <div className="absolute inset-0 opacity-10 pointer-events-none">
-                 <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:40px_40px]" />
-              </div>
-              
-              <div className="relative z-10 flex flex-col h-full justify-center items-center text-center">
-                 <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mb-8 border border-emerald-500/30 animate-pulse">
-                    <Zap className="w-12 h-12 text-emerald-500 fill-current" />
-                 </div>
-                 <h3 className="text-4xl font-black font-sora text-white mb-4 italic tracking-tighter">Connecting to Quantum Stream...</h3>
-                 <p className="text-emerald-100/40 font-medium max-w-md">
-                   Establishing high-velocity duplex connection to cluster nodes. Preparing real-time causality rendering.
-                 </p>
-                 
-                 <div className="mt-20 grid grid-cols-3 gap-12 w-full max-w-3xl">
-                    <MonitoringStat icon={<Server className="text-emerald-500" />} label="Clusters" value="08" />
-                    <MonitoringStat icon={<Cpu className="text-emerald-500" />} label="CPU Usage" value="12%" />
-                    <MonitoringStat icon={<Database className="text-emerald-500" />} label="IOPS" value="24.2k" />
-                 </div>
-              </div>
+        {/* Quantum Stream (Live Feed) */}
+        <div className="col-span-8">
+          <div className="bg-slate-900 rounded-[3rem] p-12 relative overflow-hidden shadow-2xl h-[600px] flex flex-col">
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
+            <div className="relative z-10 flex justify-between items-center mb-12">
+               <div>
+                  <h3 className="text-2xl font-black font-sora text-white">Quantum Stream</h3>
+                  <div className="flex items-center gap-2 mt-2">
+                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">Live Ingestion Active</span>
+                  </div>
+               </div>
+               <Activity className="text-white/20 w-12 h-12" />
+            </div>
 
-              {/* Decorative scanline */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/20 blur-md animate-scan z-20" />
-           </div>
+            <div className="flex-grow space-y-4 overflow-y-auto pr-4 custom-scrollbar">
+              {loading && metrics.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                   <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+                </div>
+              ) : metrics.map((m, i) => (
+                <div key={i} className="p-6 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-md flex items-center gap-8 group hover:bg-white/10 transition-all">
+                  <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-500">
+                     <Server size={24} />
+                  </div>
+                  <div className="flex-grow">
+                     <div className="text-white font-bold font-sora">{m.service_name}</div>
+                     <div className="text-xs text-white/40 font-medium">Instance-ID: {Math.random().toString(36).substr(2, 5).toUpperCase()}</div>
+                  </div>
+                  <div className="text-right flex gap-12">
+                     <div>
+                        <div className="text-[10px] font-black uppercase text-white/20 tracking-widest">Requests</div>
+                        <div className="text-white font-bold">{m.total_requests}</div>
+                     </div>
+                     <div>
+                        <div className="text-[10px] font-black uppercase text-white/20 tracking-widest">P99 Latency</div>
+                        <div className="text-emerald-400 font-bold">{Math.round(m.p99_latency)}ms</div>
+                     </div>
+                     <div>
+                        <div className="text-[10px] font-black uppercase text-white/20 tracking-widest">Errors</div>
+                        <div className="text-red-400 font-bold">{m.errors}</div>
+                     </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Right: Node Status List */}
-        <div className="col-span-12 lg:col-span-3 space-y-6">
-           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-4">Node Topology</h3>
-           <div className="space-y-4">
-              <NodeItem name="Node-Alpha-01" status="Active" load={14} />
-              <NodeItem name="Node-Beta-02" status="Active" load={8} />
-              <NodeItem name="Node-Gamma-03" status="Idle" load={2} />
-              <NodeItem name="Node-Delta-04" status="Active" load={45} />
-           </div>
+        {/* Global Stats */}
+        <div className="col-span-4 space-y-6">
+          <StatCard icon={<Globe />} title="Global Traffic" value="2.4k" unit="req/s" color="bg-blue-500" />
+          <StatCard icon={<Cpu />} title="Total CPU Usage" value="42" unit="%" color="bg-emerald-500" />
+          <StatCard icon={<Database />} title="ClickHouse Load" value="12" unit="%" color="bg-orange-500" />
+          
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm mt-8">
+             <h4 className="text-sm font-black font-sora uppercase tracking-widest text-slate-400 mb-6">Cluster Health</h4>
+             <div className="space-y-4">
+                <HealthItem label="API Gateway" status="Healthy" />
+                <HealthItem label="Auth Service" status="Healthy" />
+                <HealthItem label="Log Service" status="Warning" />
+                <HealthItem label="Query Service" status="Healthy" />
+                <HealthItem label="Kafka Cluster" status="Healthy" />
+             </div>
+          </div>
         </div>
       </div>
     </DashboardLayout>
   );
 }
 
-function MonitoringStat({ icon, label, value }: any) {
+function StatCard({ icon, title, value, unit, color }: any) {
   return (
-    <div className="flex flex-col items-center">
-      <div className="p-3 bg-white/5 rounded-2xl mb-4 border border-white/10">{icon}</div>
-      <div className="text-white text-2xl font-black font-sora mb-1 tracking-tighter">{value}</div>
-      <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{label}</div>
+    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-6">
+      <div className={`p-4 rounded-2xl text-white ${color} shadow-lg shadow-current/20`}>
+        {React.cloneElement(icon, { size: 24 })}
+      </div>
+      <div>
+        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</div>
+        <div className="flex items-baseline gap-1">
+           <span className="text-2xl font-black font-sora">{value}</span>
+           <span className="text-xs font-bold text-slate-400">{unit}</span>
+        </div>
+      </div>
     </div>
   );
 }
 
-function NodeItem({ name, status, load }: any) {
+function HealthItem({ label, status }: any) {
   return (
-    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between">
-      <div>
-        <div className="text-sm font-bold text-slate-900">{name}</div>
-        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{status}</div>
-      </div>
-      <div className="text-right">
-        <div className="text-xs font-black text-emerald-500">{load}%</div>
-        <div className="w-16 h-1 bg-slate-100 rounded-full mt-2 overflow-hidden">
-           <div className="h-full bg-emerald-500" style={{ width: `${load}%` }} />
-        </div>
-      </div>
+    <div className="flex justify-between items-center">
+       <span className="text-sm font-bold text-slate-600">{label}</span>
+       <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg ${status === 'Healthy' ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
+          {status}
+       </span>
     </div>
   );
 }

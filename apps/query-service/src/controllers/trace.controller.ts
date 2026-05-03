@@ -2,7 +2,6 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { clickhouse } from "../../../../packages/clickhouse/src/client";
 
 export class TraceController {
-  
   async listTraces(req: FastifyRequest, reply: FastifyReply) {
     try {
       // In a real multi-tenant app, you'd extract tenantId from the auth middleware
@@ -20,7 +19,7 @@ export class TraceController {
           ORDER BY start_time DESC
           LIMIT 50
         `,
-        format: 'JSONEachRow',
+        format: "JSONEachRow",
       });
 
       const traces = await result.json();
@@ -46,7 +45,7 @@ export class TraceController {
         query_params: {
           traceId,
         },
-        format: 'JSONEachRow',
+        format: "JSONEachRow",
       });
 
       const events: any[] = await result.json();
@@ -56,9 +55,9 @@ export class TraceController {
       const roots: any[] = [];
 
       // First pass: create nodes and index by spanId
-      events.forEach(event => {
+      events.forEach((event) => {
         const node = { ...event, children: [] };
-        // If multiple events share the same spanId (e.g. API_REQUEST and API_RESPONSE), 
+        // If multiple events share the same spanId (e.g. API_REQUEST and API_RESPONSE),
         // we might want to merge them or handle them as separate points in the same span.
         // For simplicity in a "Causality Graph", we merge events with same spanId into one span node.
         if (spanMap[event.span_id]) {
@@ -71,23 +70,72 @@ export class TraceController {
       });
 
       // Second pass: build relationships
-      Object.values(spanMap).forEach(node => {
+      Object.values(spanMap).forEach((node) => {
         if (node.parent_span_id && spanMap[node.parent_span_id]) {
           spanMap[node.parent_span_id].children.push(node);
         } else {
           roots.push(node);
         }
       });
-      
-      return reply.send({ 
-        success: true, 
+
+      return reply.send({
+        success: true,
         traceId,
         totalEvents: events.length,
-        tree: roots
+        tree: roots,
       });
     } catch (error) {
       req.log.error(error);
       return reply.status(500).send({ error: "Failed to get trace details" });
+    }
+  }
+
+  async listAnomalies(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const result = await clickhouse.query({
+        query: `
+          SELECT 
+            trace_id, 
+            service_name,
+            event_name as status,
+            timestamp as start_time
+          FROM events
+          WHERE event_name LIKE '%RESPONSE%' AND (payload LIKE '%"statusCode":4%' OR payload LIKE '%"statusCode":5%')
+          ORDER BY timestamp DESC
+          LIMIT 20
+        `,
+        format: "JSONEachRow",
+      });
+
+      const anomalies = await result.json();
+      return reply.send({ success: true, data: anomalies });
+    } catch (error) {
+      req.log.error(error);
+      return reply.status(500).send({ error: "Failed to query anomalies" });
+    }
+  }
+  async getPerformanceMetrics(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const result = await clickhouse.query({
+        query: `
+          SELECT 
+            service_name,
+            count() as total_requests,
+            countIf(event_name LIKE '%RESPONSE%' AND (payload LIKE '%"statusCode":4%' OR payload LIKE '%"statusCode":5%')) as errors,
+            avg(JSONExtractInt(payload, 'durationMs')) as avg_latency,
+            quantile(0.99)(JSONExtractInt(payload, 'durationMs')) as p99_latency
+          FROM events
+          WHERE event_name LIKE '%RESPONSE%'
+          GROUP BY service_name
+        `,
+        format: "JSONEachRow",
+      });
+
+      const metrics = await result.json();
+      return reply.send({ success: true, data: metrics });
+    } catch (error) {
+      req.log.error(error);
+      return reply.status(500).send({ error: "Failed to query metrics" });
     }
   }
 }
