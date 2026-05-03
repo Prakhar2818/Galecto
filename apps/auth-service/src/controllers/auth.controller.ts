@@ -7,10 +7,10 @@ import { v4 as uuidv4 } from "uuid";
 
 export class AuthController {
   async register(req: FastifyRequest, reply: FastifyReply) {
-    const { email, password, organizationId } = req.body as any;
+    const { email, password, organizationName } = req.body as any;
 
     const service = container.resolve(AuthService);
-    const user = await service.register(email, password, organizationId);
+    const { user, org } = await service.register(email, password, organizationName);
 
     const traceId = req.headers["x-trace-id"] as string || uuidv4();
     const parentSpanId = req.headers["x-span-id"] as string | undefined;
@@ -20,16 +20,23 @@ export class AuthController {
       traceId,
       spanId: uuidv4(),
       parentSpanId,
-      tenantId: organizationId,
+      tenantId: org.id,
       type: EventType.LOG,
       service: "auth-service",
       name: "USER_REGISTERED",
       timestamp: Date.now(),
-      payload: { userId: user.id, email: user.email },
+      payload: { userId: user.id, email: user.email, organizationId: org.id },
     };
     sendEvent("events", event).catch(console.error);
 
-    return reply.send(user);
+    // Generate token for immediate login after signup
+    const token = (req.server as any).jwt.sign({
+      id: user.id,
+      role: (user as any).role || "USER",
+      organizationId: org.id,
+    });
+
+    return reply.send({ success: true, user, token });
   }
 
   async login(req: FastifyRequest, reply: FastifyReply) {
@@ -40,7 +47,7 @@ export class AuthController {
 
     const token = (req.server as any).jwt.sign({
       id: user.id,
-      role: user.role,
+      role: (user as any).role || "USER",
       organizationId: user.organizationId,
     });
 
@@ -61,6 +68,6 @@ export class AuthController {
     };
     sendEvent("events", event).catch(console.error);
 
-    return reply.send({ token });
+    return reply.send({ success: true, token, user });
   }
 }
