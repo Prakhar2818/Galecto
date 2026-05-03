@@ -47,7 +47,7 @@ export default function SignupPage() {
           <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
             <Zap className="w-5 h-5 text-white fill-current" />
           </div>
-          <span className="text-xl font-black font-sora tracking-tight">Antigravity</span>
+          <span className="text-xl font-black font-sora tracking-tight">Galecto</span>
         </Link>
 
         <div className="relative z-10 max-w-md">

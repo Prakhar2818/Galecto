@@ -47,12 +47,12 @@ export default function LoginPage() {
           <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
             <Zap className="w-5 h-5 text-emerald-600 fill-current" />
           </div>
-          <span className="text-xl font-black font-sora tracking-tight text-white">Antigravity</span>
+          <span className="text-xl font-black font-sora tracking-tight text-white">Galecto</span>
         </Link>
 
         <div className="relative z-10 max-w-md">
           <blockquote className="text-3xl font-bold font-sora text-white leading-tight mb-8 italic">
-            "The level of insight we got from Antigravity within 15 minutes of integration was better than 2 years of manual logging."
+            "The level of insight we got from Galecto within 15 minutes of integration was better than 2 years of manual logging."
           </blockquote>
           <div className="flex items-center gap-4 text-white/80">
             <img src="https://i.pravatar.cc/100?img=32" alt="CTO" className="w-12 h-12 rounded-full border-2 border-white/20" />
@@ -64,7 +64,7 @@ export default function LoginPage() {
         </div>
 
         <div className="text-white/40 text-sm font-medium relative z-10">
-          © 2026 Antigravity Inc.
+          © 2026 Galecto Inc.
         </div>
       </div>
 

@@ -11,7 +11,7 @@ export default function LandingPage() {
           <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
             <Zap className="w-5 h-5 text-white fill-current" />
           </div>
-          <span className="text-xl font-black font-sora tracking-tight">Antigravity</span>
+          <span className="text-xl font-black font-sora tracking-tight">Galecto</span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
           <Link href="#features" className="hover:text-emerald-600 transition-colors">Features</Link>
@@ -116,14 +116,14 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-2">
             <Zap className="w-6 h-6 text-emerald-500 fill-current" />
-            <span className="text-lg font-black font-sora">Antigravity</span>
+            <span className="text-lg font-black font-sora">Galecto</span>
           </div>
           <div className="flex gap-8 text-sm font-medium text-slate-500">
             <Link href="/terms">Terms</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/status">Status</Link>
           </div>
-          <p className="text-sm text-slate-400 font-medium">© 2026 Antigravity Inc. All rights reserved.</p>
+          <p className="text-sm text-slate-400 font-medium">© 2026 Galecto Inc. All rights reserved.</p>
         </div>
       </footer>
     </div>

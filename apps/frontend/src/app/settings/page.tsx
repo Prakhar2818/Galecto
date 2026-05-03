@@ -140,7 +140,7 @@ export default function SettingsPage() {
               <p className="text-sm text-slate-500 mb-8 font-medium">Manage who can collaborate in this organization.</p>
               
               <div className="space-y-4">
-                 <UserRow name="Totok Michael" role="Account Owner" email="t.michael@antigravity.io" />
+                 <UserRow name="Totok Michael" role="Account Owner" email="t.michael@galecto.io" />
               </div>
            </div>
 

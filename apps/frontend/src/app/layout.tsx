@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
 
 export const metadata: Metadata = {
-  title: "Antigravity | Distributed Tracing SaaS",
+  title: "Galecto | Distributed Tracing SaaS",
   description: "Enterprise Distributed Tracing & Observability",
 };
 

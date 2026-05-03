@@ -51,7 +51,7 @@ export class ReplayController {
             ...headers,
             'x-trace-id': replayTraceId,
             'x-original-trace-id': traceId,
-            'x-antigravity-replay': 'true'
+            'x-galecto-replay': 'true'
           },
           validateStatus: () => true // Don't throw on 4xx/5xx
         });

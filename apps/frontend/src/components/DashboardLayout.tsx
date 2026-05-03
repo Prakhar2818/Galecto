@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Activity, FileText, RotateCcw, 
-  Bell, Zap, Settings, LogOut, Search, Mail, Users, Loader2
+  Bell, Zap, Settings, LogOut, Search, Mail, Users, Loader2, Code2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -38,6 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: <RotateCcw size={20} />, label: "Replay System", href: "/replay" },
     { icon: <Bell size={20} />, label: "Alerts", href: "/alerts" },
     { icon: <Zap size={20} />, label: "Live Monitoring", href: "/monitoring" },
+    { icon: <Code2 size={20} />, label: "Developer Hub", href: "/developer" },
   ];
 
   return (
@@ -48,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
             <Zap className="w-6 h-6 text-white fill-current" />
           </div>
-          <span className="text-xl font-black font-sora tracking-tight">Antigravity</span>
+          <span className="text-xl font-black font-sora tracking-tight">Galecto</span>
         </div>
 
         <nav className="flex-grow space-y-2">
