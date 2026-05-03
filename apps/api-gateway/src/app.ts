@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { routes } from "./routes";
 import { requestContextMiddleware } from "./middleware/requestContext";
 import { loggingMiddleware, responseLoggingMiddleware } from "./middleware/logger";
@@ -9,6 +10,8 @@ export function buildApp() {
   const app = Fastify({
     logger: true,
   });
+
+  app.register(cors, { origin: "*" });
 
   app.addHook("onRequest", requestContextMiddleware);
   app.addHook("preHandler", loggingMiddleware);

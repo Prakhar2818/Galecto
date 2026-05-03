@@ -8,9 +8,10 @@
     "prisma:push": "prisma db push"
   },
   "dependencies": {
+    "@fastify/cors": "^11.2.0",
     "@prisma/client": "^5.0.0",
     "dotenv": "^16.0.0",
-    "fastify": "^4.0.0",
+    "fastify": "^5.8.5",
     "kafkajs": "^2.2.4",
     "node-cron": "^4.2.1"
   },
