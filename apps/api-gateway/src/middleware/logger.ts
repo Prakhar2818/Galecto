@@ -1,5 +1,8 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { logger } from "../../../../packages/logger/src/logger"
+import { logger } from "../../../../packages/logger/src/logger";
+import { sendEvent } from "../../../../packages/kafka/src/producer";
+import { EventType, IEvent } from "../../../../packages/types/src/index";
+import { v4 as uuidv4 } from "uuid";
 
 export async function loggingMiddleware(
   request: FastifyRequest,
@@ -8,10 +11,24 @@ export async function loggingMiddleware(
   const context = (request as any).context;
 
   logger.info({
-    requestId: context?.requestId,
+    traceId: context?.traceId,
+    spanId: context?.spanId,
     url: request.url,
     method: request.method,
   });
+
+  const event: IEvent = {
+    eventId: uuidv4(),
+    traceId: context?.traceId || uuidv4(),
+    spanId: context?.spanId || uuidv4(),
+    type: EventType.TRACE,
+    service: "api-gateway",
+    name: `API_REQUEST ${request.method} ${request.url}`,
+    timestamp: Date.now(),
+    payload: { url: request.url, method: request.method },
+  };
+  
+  sendEvent("events", event).catch(err => logger.error({ err }, "Failed to send Kafka event"));
 }
 
 export async function responseLoggingMiddleware(
@@ -22,10 +39,29 @@ export async function responseLoggingMiddleware(
   const durationMs = context?.startTime ? Date.now() - context.startTime : undefined;
 
   logger.info({
-    requestId: context?.requestId,
+    traceId: context?.traceId,
+    spanId: context?.spanId,
     url: request.url,
     method: request.method,
     statusCode: reply.statusCode,
     durationMs,
   });
+
+  const event: IEvent = {
+    eventId: uuidv4(),
+    traceId: context?.traceId || uuidv4(),
+    spanId: context?.spanId || uuidv4(),
+    type: EventType.TRACE,
+    service: "api-gateway",
+    name: `API_RESPONSE ${request.method} ${request.url}`,
+    timestamp: Date.now(),
+    payload: { 
+      url: request.url, 
+      method: request.method, 
+      statusCode: reply.statusCode, 
+      durationMs 
+    },
+  };
+
+  sendEvent("events", event).catch(err => logger.error({ err }, "Failed to send Kafka event"));
 }

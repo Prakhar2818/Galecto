@@ -15,6 +15,10 @@ export function buildApp() {
   app.addHook("onResponse", responseLoggingMiddleware);
   app.setErrorHandler(errorHandler);
 
+  app.get("/", async () => {
+    return { status: "API Gateway Online", api: "/api/v1" };
+  });
+
   app.register(routes);
   app.register(authRoutes)
 

@@ -9,7 +9,7 @@ export class AuthService {
     private userRepo: UserRepository
   ) {}
 
-  async register(email: string, password: string) {
+  async register(email: string, password: string, organizationId: string) {
     const existing = await this.userRepo.findByEmail(email);
     if (existing) {
       throw new Error("User already exists");
@@ -20,6 +20,7 @@ export class AuthService {
     return this.userRepo.create({
       email,
       password: hashed,
+      organizationId,
     });
   }
 
