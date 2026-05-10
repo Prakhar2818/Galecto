@@ -1,0 +1,14 @@
+{
+  "name": "logger",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "pino": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

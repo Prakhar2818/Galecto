@@ -1,0 +1,13 @@
+
+> frontend@1.0.0 dev
+> next dev
+
+   ▲ Next.js 14.1.0
+   - Local:        http://localhost:3000
+
+
+   We detected TypeScript in your project and reconfigured your tsconfig.json file for you. Strict-mode is set to false by default.
+   The following mandatory changes were made to your tsconfig.json:
+
+   	- jsx was set to preserve (next.js implements its own optimized jsx transform)
+

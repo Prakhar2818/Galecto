@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Alert {
+  id            String       @id @default(uuid())
+  traceId       String
+  service       String
+  type          String
+  message       String
+  status        String       @default("ACTIVE")
+  severity      String       @default("MEDIUM")
+  organizationId String
+  assignedTo    String?
+  slaDueAt      DateTime?
+  createdAt     DateTime     @default(now())
+  resolvedAt    DateTime?
+}

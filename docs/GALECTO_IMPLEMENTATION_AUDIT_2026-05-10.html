@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Galecto Implementation Audit - May 10, 2026</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+
+    :root {
+      --ink: #16202a;
+      --muted: #5d6b78;
+      --line: #d7e1e7;
+      --soft: #f4f8fa;
+      --brand: #0f766e;
+      --brand-soft: #d8f1ee;
+      --warn: #b45309;
+      --warn-soft: #fff0d6;
+      --danger: #b42318;
+      --danger-soft: #fee4e2;
+      --ok: #166534;
+      --ok-soft: #dcfce7;
+      --accent: #0f3d56;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 11.2pt;
+      line-height: 1.45;
+      background: white;
+    }
+
+    .cover {
+      min-height: 250mm;
+      padding: 18mm 14mm 10mm 14mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background:
+        radial-gradient(circle at top right, #d8f1ee 0, transparent 34%),
+        linear-gradient(165deg, #f7fbfc 0%, #ffffff 52%, #eef7f7 100%);
+      border: 1px solid var(--line);
+    }
+
+    .cover-kicker {
+      color: var(--brand);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 9pt;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    .cover h1 {
+      margin: 0 0 12px 0;
+      font-size: 28pt;
+      line-height: 1.06;
+      color: var(--accent);
+    }
+
+    .cover p.lead {
+      max-width: 78%;
+      font-size: 13pt;
+      color: #304455;
+      margin: 0;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .meta-card {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .meta-card .label {
+      display: block;
+      font-size: 8.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .meta-card .value {
+      font-size: 11pt;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .page {
+      page-break-before: always;
+      padding-top: 4mm;
+    }
+
+    h2 {
+      font-size: 20pt;
+      line-height: 1.15;
+      margin: 0 0 12px 0;
+      color: var(--accent);
+      page-break-after: avoid;
+    }
+
+    h3 {
+      font-size: 13.5pt;
+      margin: 18px 0 8px 0;
+      color: #13364a;
+      page-break-after: avoid;
+    }
+
+    p {
+      margin: 0 0 10px 0;
+    }
+
+    .summary-box,
+    .callout {
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 14px 0 18px 0;
+      border: 1px solid var(--line);
+      background: var(--soft);
+    }
+
+    .callout.warn {
+      background: var(--warn-soft);
+      border-color: #f0d096;
+    }
+
+    .callout.danger {
+      background: var(--danger-soft);
+      border-color: #f0b7b3;
+    }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 16px 0 18px 0;
+    }
+
+    .score-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: white;
+    }
+
+    .score-card .title {
+      font-size: 8.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .score-card .score {
+      font-size: 22pt;
+      font-weight: 800;
+      color: var(--brand);
+      line-height: 1;
+    }
+
+    .score-card .note {
+      margin-top: 6px;
+      font-size: 9.5pt;
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 18px 0;
+      page-break-inside: auto;
+    }
+
+    thead {
+      display: table-header-group;
+    }
+
+    tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #edf4f7;
+      color: #15384b;
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    td {
+      background: white;
+      font-size: 10pt;
+    }
+
+    .status {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 8.5pt;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .implemented {
+      color: var(--ok);
+      background: var(--ok-soft);
+    }
+
+    .partial {
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .missing {
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .mono {
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 9.3pt;
+    }
+
+    ul {
+      margin: 8px 0 14px 18px;
+      padding: 0;
+    }
+
+    li {
+      margin: 0 0 7px 0;
+    }
+
+    .small {
+      font-size: 9.4pt;
+      color: var(--muted);
+    }
+
+    .twocol {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 10px 0 16px 0;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: white;
+    }
+
+    .panel h4 {
+      margin: 0 0 8px 0;
+      color: #14384b;
+      font-size: 11pt;
+    }
+
+    .footer-note {
+      margin-top: 24px;
+      font-size: 9pt;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div>
+      <div class="cover-kicker">Implementation Assessment</div>
+      <h1>Galecto Project Audit<br />Implementation, Gaps, Risks, and Enterprise Roadmap</h1>
+      <p class="lead">
+        A detailed technical assessment of the current Galecto codebase, comparing the implementation claims in the project documentation with the actual service, data, and frontend wiring present in the repository as of May 10, 2026.
+      </p>
+      <div class="meta-grid">
+        <div class="meta-card">
+          <span class="label">Project</span>
+          <span class="value">Galecto</span>
+        </div>
+        <div class="meta-card">
+          <span class="label">Assessment Date</span>
+          <span class="value">May 10, 2026</span>
+        </div>
+        <div class="meta-card">
+          <span class="label">Scope</span>
+          <span class="value">Docs vs Codebase</span>
+        </div>
+        <div class="meta-card">
+          <span class="label">Overall Status</span>
+          <span class="value">Prototype / MVP+</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer-note">
+      Sources reviewed: <span class="mono">docs/</span>, <span class="mono">apps/</span>, <span class="mono">packages/</span>, and service route/controller wiring in the current workspace.
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>1. Executive Summary</h2>
+    <div class="summary-box">
+      <p>
+        The Galecto project has a strong product direction and a credible microservice-based observability platform shape, but it is not yet implemented to the level claimed in the documentation. The codebase already contains the core building blocks for authentication, telemetry ingestion, log search, trace visualization, replay, alerting, monitoring, project management, and retention management. However, many of these capabilities are only partially wired together, and several high-value enterprise features remain either non-functional, UI-only, or structurally incomplete.
+      </p>
+      <p>
+        The current state is best described as a promising product prototype or an MVP-plus platform rather than a finished enterprise-grade observability suite.
+      </p>
+    </div>
+
+    <div class="score-grid">
+      <div class="score-card">
+        <div class="title">Feature Coverage</div>
+        <div class="score">6.5/10</div>
+        <div class="note">Most major modules exist, but several are only partially operational.</div>
+      </div>
+      <div class="score-card">
+        <div class="title">Architecture Integrity</div>
+        <div class="score">5.5/10</div>
+        <div class="note">Good service decomposition, but route, auth, and schema gaps weaken the platform.</div>
+      </div>
+      <div class="score-card">
+        <div class="title">Enterprise Readiness</div>
+        <div class="score">3.5/10</div>
+        <div class="note">Missing durability, security hardening, governance, and operational maturity.</div>
+      </div>
+      <div class="score-card">
+        <div class="title">Documentation Accuracy</div>
+        <div class="score">4/10</div>
+        <div class="note">Docs overstate completion relative to current implementation.</div>
+      </div>
+    </div>
+
+    <h3>High-Level Conclusion</h3>
+    <p>
+      The platform direction is solid. The biggest immediate need is not adding flashy new UI, but closing the core correctness gaps: route prefix mismatches, auth model inconsistency, missing trace parent linkage, incomplete project APIs, hardcoded retention behavior, and non-persistent alerting.
+    </p>
+
+    <div class="callout warn">
+      <strong>Important:</strong> The file <span class="mono">docs/CURRENT_IMPLEMENTATION.md</span> currently states that all phases are complete. The codebase does not support that claim today. This mismatch should be corrected to avoid confusion for developers, reviewers, stakeholders, and potential customers.
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>2. Assessment Method</h2>
+    <p>
+      This report was prepared by comparing the implementation claims in the documentation against the actual source code present in the repository. The review focused on the following areas:
+    </p>
+    <ul>
+      <li>Backend service startup and route wiring</li>
+      <li>Authentication and authorization flow</li>
+      <li>Data model and persistence capabilities</li>
+      <li>Telemetry ingestion, trace stitching, log search, replay, alerting, and monitoring</li>
+      <li>Frontend route coverage and whether UI actions are backed by working APIs</li>
+      <li>Operational readiness and enterprise-grade concerns</li>
+    </ul>
+
+    <h3>Key Source Files Reviewed</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Representative Files</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Implementation claims</td>
+          <td class="mono">docs/CURRENT_IMPLEMENTATION.md<br />docs/GALECTO_TECHNICAL_GUIDE.md<br />docs/GALECTO_DEEP_DIVE.md</td>
+          <td>Stated feature scope and maturity level</td>
+        </tr>
+        <tr>
+          <td>API gateway</td>
+          <td class="mono">apps/api-gateway/src/app.ts<br />apps/api-gateway/src/routes/index.ts<br />apps/api-gateway/src/middleware/auth.ts<br />apps/api-gateway/src/controllers/replay.controller.ts</td>
+          <td>Ingress, replay, auth, event production</td>
+        </tr>
+        <tr>
+          <td>Query service</td>
+          <td class="mono">apps/query-service/src/server.ts<br />apps/query-service/src/routes/trace.routes.ts<br />apps/query-service/src/controllers/trace.controller.ts<br />apps/query-service/src/controllers/log.controller.ts</td>
+          <td>Trace, anomaly, metric, and log query behavior</td>
+        </tr>
+        <tr>
+          <td>Auth and projects</td>
+          <td class="mono">apps/auth-service/src/app.ts<br />apps/auth-service/src/controllers/auth.controller.ts<br />apps/auth-service/src/controllers/project.controller.ts<br />apps/auth-service/prisma/schema.prisma</td>
+          <td>User, org, project, and API key management</td>
+        </tr>
+        <tr>
+          <td>Telemetry persistence</td>
+          <td class="mono">apps/log-service/src/server.ts<br />apps/log-service/src/workers/retention.worker.ts<br />packages/clickhouse/src/client.ts</td>
+          <td>Event storage, schema, and retention</td>
+        </tr>
+        <tr>
+          <td>Alerting</td>
+          <td class="mono">apps/alert-service/src/server.ts</td>
+          <td>Real-time anomaly detection and incident handling</td>
+        </tr>
+        <tr>
+          <td>Frontend</td>
+          <td class="mono">apps/frontend/src/app/*<br />apps/frontend/src/lib/apiClient.ts<br />apps/frontend/src/context/AuthContext.tsx</td>
+          <td>Feature exposure and end-to-end flow checks</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page">
+    <h2>3. Feature-by-Feature Implementation Status</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Feature Area</th>
+          <th>Status</th>
+          <th>Assessment</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>SaaS onboarding and auth bootstrap</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>User signup creates organization, default project, and initial API key. Login and token issuance exist. However, downstream authenticated project handling is incomplete.</td>
+          <td class="mono">apps/auth-service/src/services/auth.service.ts<br />apps/auth-service/src/controllers/auth.controller.ts</td>
+        </tr>
+        <tr>
+          <td>Frontend auth session handling</td>
+          <td><span class="status implemented">Implemented</span></td>
+          <td>Browser session persistence and route redirection are present through local storage and the auth context.</td>
+          <td class="mono">apps/frontend/src/context/AuthContext.tsx</td>
+        </tr>
+        <tr>
+          <td>Telemetry ingestion through gateway</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Gateway emits events to Kafka, but the auth model for ingest depends on Redis-cached API keys and does not align cleanly with JWT-based frontend usage.</td>
+          <td class="mono">apps/api-gateway/src/routes/index.ts<br />apps/api-gateway/src/middleware/auth.ts</td>
+        </tr>
+        <tr>
+          <td>Kafka to ClickHouse persistence</td>
+          <td><span class="status implemented">Implemented</span></td>
+          <td>Log service consumes Kafka events and inserts them into ClickHouse.</td>
+          <td class="mono">apps/log-service/src/server.ts</td>
+        </tr>
+        <tr>
+          <td>Trace list and trace detail API</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Controller logic exists, but the service route registration is mismatched with frontend expectations.</td>
+          <td class="mono">apps/query-service/src/server.ts<br />apps/query-service/src/routes/trace.routes.ts</td>
+        </tr>
+        <tr>
+          <td>Hierarchical trace stitching</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Tree-building logic exists, but the stored event schema does not preserve parent span relationships, which limits correctness.</td>
+          <td class="mono">apps/query-service/src/controllers/trace.controller.ts<br />packages/clickhouse/src/client.ts</td>
+        </tr>
+        <tr>
+          <td>Logs explorer</td>
+          <td><span class="status implemented">Implemented</span></td>
+          <td>Search and service filters are supported through ClickHouse-backed query APIs.</td>
+          <td class="mono">apps/query-service/src/controllers/log.controller.ts<br />apps/frontend/src/app/logs/page.tsx</td>
+        </tr>
+        <tr>
+          <td>Replay controller</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Replay logic exists, but it depends on request metadata being stored in a very specific payload shape, and the UI auth path is not aligned with gateway auth expectations.</td>
+          <td class="mono">apps/api-gateway/src/controllers/replay.controller.ts<br />apps/frontend/src/app/replay/page.tsx</td>
+        </tr>
+        <tr>
+          <td>Alert detection</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Latency and error alerts are generated from Kafka events, but the storage is in-memory and not suitable for production.</td>
+          <td class="mono">apps/alert-service/src/server.ts</td>
+        </tr>
+        <tr>
+          <td>Monitoring / metrics</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Metrics query logic exists, but frontend wiring depends on routes that appear mismatched, and some dashboard values remain static placeholders.</td>
+          <td class="mono">apps/query-service/src/controllers/trace.controller.ts<br />apps/frontend/src/app/monitoring/page.tsx<br />apps/frontend/src/app/dashboard/page.tsx</td>
+        </tr>
+        <tr>
+          <td>Project management</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Project and API key data models exist, but project routes assume authenticated user context that is not fully wired.</td>
+          <td class="mono">apps/auth-service/src/controllers/project.controller.ts<br />apps/auth-service/src/routes/project.routes.ts</td>
+        </tr>
+        <tr>
+          <td>Retention management</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>A scheduled retention worker exists, but retention is hardcoded to 30 days and not connected to org settings or the frontend update control.</td>
+          <td class="mono">apps/log-service/src/workers/retention.worker.ts<br />apps/auth-service/prisma/schema.prisma<br />apps/frontend/src/app/settings/page.tsx</td>
+        </tr>
+        <tr>
+          <td>Developer hub</td>
+          <td><span class="status partial">Partial</span></td>
+          <td>The documentation page is present, but the referenced SDK package is not implemented in the repository.</td>
+          <td class="mono">apps/frontend/src/app/developer/page.tsx</td>
+        </tr>
+        <tr>
+          <td>Enterprise-grade reliability and governance</td>
+          <td><span class="status missing">Missing</span></td>
+          <td>Core production controls such as durable alerting, RBAC, auditability, policy enforcement, rate limiting, encryption strategy, and observability of the platform itself are not yet present.</td>
+          <td class="mono">Cross-cutting gap across services</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page">
+    <h2>4. What Is Implemented Well</h2>
+    <div class="twocol">
+      <div class="panel">
+        <h4>Service Decomposition</h4>
+        <p>The project is already organized into focused services for gateway, auth, query, log processing, alerting, and frontend presentation. That separation will help future scaling and team ownership.</p>
+      </div>
+      <div class="panel">
+        <h4>Clear Product Direction</h4>
+        <p>The feature set is cohesive. Traces, logs, metrics, replay, alerts, and project-level control all fit together into a strong observability narrative.</p>
+      </div>
+      <div class="panel">
+        <h4>ClickHouse-Centered Querying</h4>
+        <p>The use of ClickHouse for telemetry analytics is an appropriate choice for observability-style workloads and supports low-latency aggregation patterns.</p>
+      </div>
+      <div class="panel">
+        <h4>Frontend Surface Area</h4>
+        <p>The application already has a broad UI footprint, which means the product vision is tangible and not just backend scaffolding.</p>
+      </div>
+    </div>
+
+    <h3>Concrete Strengths</h3>
+    <ul>
+      <li>Signup flow creates organization, default project, and initial API key at bootstrap time.</li>
+      <li>Kafka-based decoupling between ingestion and analytics is already present.</li>
+      <li>The query layer already contains logic for traces, anomalies, metrics, and logs.</li>
+      <li>The alert-service already has a working consumer loop for basic anomaly heuristics.</li>
+      <li>The frontend has dedicated workspaces for traces, logs, replay, alerts, monitoring, developer setup, and settings.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>5. What Is Going Wrong in the Project</h2>
+    <div class="callout danger">
+      <strong>Summary:</strong> the main problem is not lack of ambition. The main problem is inconsistency between the documented architecture, the UI assumptions, the auth model, and the actual backend route and data wiring.
+    </div>
+
+    <h3>5.1 Route Prefix Mismatches Break End-to-End Flows</h3>
+    <p>
+      The frontend calls trace APIs using paths such as <span class="mono">/api/v1/traces</span>, <span class="mono">/api/v1/traces/anomalies</span>, and <span class="mono">/api/v1/traces/metrics</span>. However, the query service registers trace routes at the root level rather than under the <span class="mono">/api/v1/traces</span> prefix.
+    </p>
+    <p class="small">
+      Evidence: <span class="mono">apps/query-service/src/server.ts</span> registers <span class="mono">traceRoutes</span> directly, and <span class="mono">apps/query-service/src/routes/trace.routes.ts</span> defines paths as <span class="mono">/</span>, <span class="mono">/anomalies</span>, <span class="mono">/metrics</span>, and <span class="mono">/:traceId</span>.
+    </p>
+
+    <h3>5.2 Auth Model Is Split Between JWT Sessions and API Key Validation</h3>
+    <p>
+      The frontend authenticates with JWTs stored in local storage, while the gateway ingest and replay endpoints expect Bearer tokens to be API keys cached in Redis. This means the UI and gateway are speaking two different auth languages.
+    </p>
+    <p class="small">
+      Evidence: <span class="mono">apps/frontend/src/lib/apiClient.ts</span> sends the browser token as a Bearer token, while <span class="mono">apps/api-gateway/src/middleware/auth.ts</span> looks that same Bearer token up as <span class="mono">apikey:{token}</span> in Redis.
+    </p>
+
+    <h3>5.3 Project APIs Assume User Context That Is Not Established</h3>
+    <p>
+      Project controllers read <span class="mono">(req as any).user.organizationId</span>, but there is no visible middleware on those routes populating <span class="mono">req.user</span> through JWT verification. As a result, the project management path is structurally incomplete.
+    </p>
+
+    <h3>5.4 Trace Schema Cannot Fully Support Claimed Hierarchical Stitching</h3>
+    <p>
+      The trace controller builds trees using <span class="mono">parent_span_id</span>, but the ClickHouse events table does not store <span class="mono">parent_span_id</span> at all. This limits accuracy and makes some of the causality claims stronger than the actual stored data model.
+    </p>
+
+    <h3>5.5 Replay Depends on Narrow Metadata Assumptions</h3>
+    <p>
+      Replay logic reads a single event payload, parses method, URL, headers, and body from it, and replays through the gateway. That can work for controlled demos, but it is fragile for production use without a dedicated replay-safe request capture schema and redaction strategy.
+    </p>
+
+    <h3>5.6 Alerts Are Not Durable</h3>
+    <p>
+      Incidents are held in memory only. If the alert-service restarts, the alert history is lost. This makes the current incident center unsuitable for enterprise operations, auditing, or shift handoffs.
+    </p>
+
+    <h3>5.7 Several UI Controls Are Presentational Only</h3>
+    <p>
+      Buttons such as <span class="mono">+ New Key</span>, <span class="mono">Rotate Keys</span>, <span class="mono">Create New Rule</span>, <span class="mono">View Replay History</span>, and the retention update control do not appear to be connected to complete backend capabilities.
+    </p>
+  </section>
+
+  <section class="page">
+    <h2>6. Detailed Gap Analysis by Domain</h2>
+
+    <h3>6.1 Authentication and Tenant Isolation</h3>
+    <ul>
+      <li>JWT issuance exists, but JWT verification and role-based request authorization are not consistently enforced across services.</li>
+      <li>Gateway API key auth relies on Redis cache presence rather than a robust lookup and rotation strategy.</li>
+      <li>The platform does not yet clearly separate human user auth from machine ingest auth in a clean way.</li>
+      <li>There is no visible RBAC model beyond a basic <span class="mono">Role</span> enum.</li>
+    </ul>
+
+    <h3>6.2 Data Model and Persistence</h3>
+    <ul>
+      <li>ClickHouse event schema is too narrow for a serious tracing/replay product. It lacks explicit parent span storage, status normalization, request metadata columns, replay metadata, and lifecycle fields.</li>
+      <li>Alerts are not persisted.</li>
+      <li>Retention settings are modeled in Postgres but not operationalized in the worker logic.</li>
+      <li>The seed path appears inconsistent with the current Prisma schema expectations, which suggests schema and seed drift.</li>
+    </ul>
+
+    <h3>6.3 Observability Product Depth</h3>
+    <ul>
+      <li>Metrics are currently limited to simple aggregates derived from generic event payloads.</li>
+      <li>There is no evidence of SLOs, burn-rate alerts, service dependency maps, or release/environment correlation.</li>
+      <li>Replay lacks versioning, replay comparison summaries, request redaction, and outcome storage.</li>
+    </ul>
+
+    <h3>6.4 Frontend-to-Backend Contract Quality</h3>
+    <ul>
+      <li>Several pages assume APIs that are not actually exposed under matching route prefixes.</li>
+      <li>Some dashboard visualizations still contain static or decorative data rather than live domain-backed metrics.</li>
+      <li>There is no visible contract layer or shared API schema enforcement between frontend and backend.</li>
+    </ul>
+
+    <h3>6.5 Operational Readiness</h3>
+    <ul>
+      <li>No visible test coverage for critical flows.</li>
+      <li>No visible deployment hardening, health dependency checks, circuit breaking, or backpressure strategies.</li>
+      <li>No durable audit trail for admin actions, alert resolutions, key rotations, or replay usage.</li>
+      <li>No evidence of compliance-focused controls such as secret management, encryption policy, or data retention governance per tenant.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>7. Enterprise-Level Improvements Recommended</h2>
+
+    <h3>7.1 Foundation Fixes Required Before Scaling</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Priority</th>
+          <th>Recommendation</th>
+          <th>Why It Matters</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>P0</td>
+          <td>Unify route prefixes and frontend API contracts</td>
+          <td>Restores basic feature functionality and reduces false UI confidence.</td>
+        </tr>
+        <tr>
+          <td>P0</td>
+          <td>Separate user JWT auth from telemetry API key auth</td>
+          <td>Clarifies security boundaries and prevents broken cross-service assumptions.</td>
+        </tr>
+        <tr>
+          <td>P0</td>
+          <td>Store parent span IDs and structured request/response metadata</td>
+          <td>Enables reliable trace trees and robust replay.</td>
+        </tr>
+        <tr>
+          <td>P0</td>
+          <td>Persist alerts and replay executions in Postgres</td>
+          <td>Makes incidents and replay history durable and auditable.</td>
+        </tr>
+        <tr>
+          <td>P1</td>
+          <td>Wire project, API key, and retention controls end to end</td>
+          <td>Turns current UI concepts into real tenant management capabilities.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>7.2 Product Features Needed for a Real Enterprise Platform</h3>
+    <ul>
+      <li>Multi-environment project structure: dev, staging, prod, and region-aware segmentation.</li>
+      <li>Role-based access control with organization admin, developer, observer, and billing/admin roles.</li>
+      <li>API key lifecycle features: create, rotate, revoke, expiry, scope, and audit history.</li>
+      <li>Persistent incident management with severity, assignment, notes, SLA timestamps, and change history.</li>
+      <li>Notification integrations for Slack, email, Teams, PagerDuty, and webhooks.</li>
+      <li>Saved searches, dashboards, and user-configured alert rules.</li>
+      <li>Release correlation and deploy markers for incident analysis.</li>
+      <li>OTLP and OpenTelemetry SDK support instead of only custom event ingestion.</li>
+      <li>Replay safeguards: PII masking, target environment controls, allowlists, and redaction policies.</li>
+      <li>Service map, dependency map, anomaly trends, and SLO burn-rate views.</li>
+    </ul>
+
+    <h3>7.3 Engineering Maturity Improvements</h3>
+    <ul>
+      <li>Add shared typed API contracts between frontend and services.</li>
+      <li>Add integration tests for signup, login, project creation, trace query, replay, and alert resolution.</li>
+      <li>Add schema migration discipline for ClickHouse and Postgres.</li>
+      <li>Add structured error taxonomies and consistent response envelopes.</li>
+      <li>Add internal telemetry for the Galecto platform itself.</li>
+      <li>Add CI pipelines with lint, typecheck, integration test, and migration validation stages.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>8. Recommended Roadmap</h2>
+
+    <h3>Phase 1: Stabilize the Core Platform</h3>
+    <ul>
+      <li>Fix query-service route prefixes to match frontend usage.</li>
+      <li>Introduce JWT verification middleware for user-facing backend routes.</li>
+      <li>Introduce a clear API key verification flow for machine ingest and replay authorization.</li>
+      <li>Normalize event schema and add missing tracing columns.</li>
+      <li>Make project creation, key generation, and retention settings work end to end.</li>
+    </ul>
+
+    <h3>Phase 2: Make Core Data Durable and Trustworthy</h3>
+    <ul>
+      <li>Persist alerts, replay executions, and replay results.</li>
+      <li>Add retention-by-tenant behavior from Postgres configuration.</li>
+      <li>Add replay history, audit trails, and secure redaction rules.</li>
+      <li>Replace placeholder UI metrics with live calculated values.</li>
+    </ul>
+
+    <h3>Phase 3: Add Enterprise Controls</h3>
+    <ul>
+      <li>RBAC and scoped API keys.</li>
+      <li>Incident workflow, acknowledgement, escalation, and notification integrations.</li>
+      <li>Saved dashboards, alert rule builder, and alert suppression windows.</li>
+      <li>Environment-aware and project-aware governance controls.</li>
+    </ul>
+
+    <h3>Phase 4: Deepen the Product Advantage</h3>
+    <ul>
+      <li>OpenTelemetry compatibility and SDK packaging.</li>
+      <li>Trace diffing and release-over-release comparison.</li>
+      <li>Root-cause suggestions, blast radius analysis, and anomaly clustering.</li>
+      <li>Replay safety policies and enterprise audit exports.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>9. Recommended Order of Work</h2>
+    <p>
+      The most effective way to proceed is not feature by feature in random order. This project should be handled in a dependency-aware sequence, because several visible UI issues are actually caused by deeper backend contract and schema problems. The right approach is to stabilize the foundations first, then wire core product flows, and only after that expand into enterprise capabilities.
+    </p>
+
+    <h3>9.1 What to Look At First</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Area / Service</th>
+          <th>Why It Comes First</th>
+          <th>Main Goal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Project-wide contracts and route mapping</td>
+          <td>Before fixing features, the team must know which frontend pages call which backend routes and whether the paths match.</td>
+          <td>Create a clear map of frontend pages to actual service endpoints.</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Authentication model across <span class="mono">frontend</span>, <span class="mono">api-gateway</span>, and <span class="mono">auth-service</span></td>
+          <td>Auth inconsistency is currently breaking or weakening multiple flows at once.</td>
+          <td>Separate human-user JWT auth from machine API-key auth and enforce both correctly.</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><span class="mono">query-service</span> route structure</td>
+          <td>The traces, anomalies, and metrics pages depend on this service and currently appear misaligned.</td>
+          <td>Make route prefixes and handlers match frontend expectations exactly.</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Telemetry schema in <span class="mono">log-service</span> and <span class="mono">packages/clickhouse</span></td>
+          <td>Trace quality, replay correctness, and metrics depth all depend on what gets stored.</td>
+          <td>Add missing fields such as parent span ID and normalized request/response metadata.</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><span class="mono">auth-service</span> projects, API keys, retention settings</td>
+          <td>These are platform-control capabilities and should work before advanced UI polish.</td>
+          <td>Make project creation, key generation, and tenant settings functional end to end.</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Core product flows: traces, logs, replay, alerts, monitoring</td>
+          <td>Once contracts and storage are correct, these features can be made reliable instead of cosmetic.</td>
+          <td>Turn each major workspace into a complete working user journey.</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>Enterprise features and governance</td>
+          <td>These are important, but they should be built on a stable platform core.</td>
+          <td>Add durability, RBAC, notificationing, auditing, compliance, and operational controls.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>9.2 Recommended Sequential Approach</h3>
+    <ol>
+      <li>
+        Start with a service and route audit.
+        Confirm which frontend pages depend on <span class="mono">api-gateway</span>, <span class="mono">query-service</span>, <span class="mono">auth-service</span>, and <span class="mono">alert-service</span>. Document the expected endpoint path, the actual registered path, the auth method used, and whether the page is currently functional.
+      </li>
+      <li>
+        Fix authentication and authorization next.
+        Decide the platform contract clearly: browser users should authenticate with JWT sessions, while telemetry producers should use scoped API keys. Then enforce that decision across the gateway and service routes.
+      </li>
+      <li>
+        Repair the query-service before improving the dashboards.
+        The traces, anomalies, and metrics pages depend on query-service behavior, so the service route prefixes and response shapes must be stabilized before doing more frontend work.
+      </li>
+      <li>
+        Upgrade the event schema and ingestion model.
+        Add the fields necessary for real trace hierarchies, replay-safe capture, environment/project tagging, and stronger metrics. Without this step, later observability features will remain shallow.
+      </li>
+      <li>
+        Complete project and platform settings in auth-service.
+        Make sure project listing, project creation, API key generation, API key caching or lookup, and retention policy updates all work in a real end-to-end flow.
+      </li>
+      <li>
+        Then stabilize the five user-facing product pillars in order:
+        traces first, logs second, replay third, alerts fourth, monitoring fifth.
+        This order works well because traces and logs are the base evidence layer, replay depends on both, alerts depend on meaningful telemetry, and monitoring becomes more trustworthy once the underlying data model is solid.
+      </li>
+      <li>
+        Only after the above should the team move into enterprise expansion work such as RBAC, incident lifecycle workflows, notifications, SDK packaging, compliance features, and advanced analytics.
+      </li>
+    </ol>
+
+    <h3>9.3 Best Service-by-Service Execution Order</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Service / Layer</th>
+          <th>What to Do There</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td class="mono">apps/frontend + service contract mapping</td>
+          <td>List every frontend page, the API it calls, expected payload shape, expected auth, and whether the current backend supports it.</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td class="mono">apps/api-gateway</td>
+          <td>Clarify gateway responsibilities: ingest, replay orchestration, auth forwarding, and possibly proxying user-facing backend calls where appropriate.</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td class="mono">apps/auth-service</td>
+          <td>Fix JWT verification, user context injection, project APIs, API key lifecycle behavior, and retention configuration endpoints.</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td class="mono">apps/query-service</td>
+          <td>Fix prefixes, response contracts, anomaly and metrics routes, and prepare for stronger trace assembly logic.</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td class="mono">apps/log-service + packages/clickhouse + packages/types</td>
+          <td>Expand the event schema, improve insertion shape, and support retention and richer query semantics.</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td class="mono">apps/alert-service</td>
+          <td>Move alerts from in-memory behavior to persisted incidents and add rule management foundations.</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td class="mono">frontend feature hardening</td>
+          <td>Once the backend becomes trustworthy, connect the currently placeholder actions and replace static values with live data.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>9.4 Suggested Feature Order</h3>
+    <ul>
+      <li><strong>Feature 1:</strong> Authentication and access model</li>
+      <li><strong>Feature 2:</strong> Trace list and trace detail correctness</li>
+      <li><strong>Feature 3:</strong> Log search stability</li>
+      <li><strong>Feature 4:</strong> Replay capture and replay execution reliability</li>
+      <li><strong>Feature 5:</strong> Project management, API keys, and retention settings</li>
+      <li><strong>Feature 6:</strong> Persistent alerting and incident workflows</li>
+      <li><strong>Feature 7:</strong> Monitoring and dashboard realism</li>
+      <li><strong>Feature 8:</strong> Enterprise governance, RBAC, notifications, auditability, and SDK maturity</li>
+    </ul>
+
+    <div class="callout warn">
+      <strong>Practical advice:</strong> do not start by polishing the UI further. The first pass should focus on contracts, auth, routes, schema, and persistence. Otherwise the team risks spending time beautifying pages that are still backed by incomplete or inconsistent backend behavior.
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>10. Market Competition and Galecto USP</h2>
+    <p>
+      To understand where Galecto fits, it is important to compare it not only against generic monitoring tools, but against modern observability platforms that already combine logs, metrics, traces, real user monitoring, session replay, and incident workflows. As of May 10, 2026, Galecto's closest competition is not a single company but a cluster of platforms serving adjacent needs at different levels of maturity.
+    </p>
+
+    <h3>10.1 Primary Market Competitors</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Competitor</th>
+          <th>Primary Strength</th>
+          <th>Why It Competes with Galecto</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Datadog</td>
+          <td>Enterprise full-stack observability with APM, logs, traces, RUM, and session replay</td>
+          <td>Competes on unified troubleshooting across frontend and backend with strong enterprise maturity.</td>
+        </tr>
+        <tr>
+          <td>New Relic</td>
+          <td>Unified observability platform with large integration footprint and AI-assisted analysis</td>
+          <td>Competes on end-to-end telemetry unification, APM, browser monitoring, and intelligent analysis.</td>
+        </tr>
+        <tr>
+          <td>Grafana Cloud</td>
+          <td>Open and composable observability stack with logs, metrics, traces, and frontend observability</td>
+          <td>Competes on openness, observability breadth, and correlation across telemetry types.</td>
+        </tr>
+        <tr>
+          <td>Honeycomb</td>
+          <td>Deep high-cardinality observability and fast distributed tracing investigation</td>
+          <td>Competes on rapid root-cause analysis and rich distributed tracing exploration.</td>
+        </tr>
+        <tr>
+          <td>SigNoz</td>
+          <td>Open-source unified observability alternative to Datadog/New Relic</td>
+          <td>Competes on cost-sensitive full-stack observability using open standards.</td>
+        </tr>
+        <tr>
+          <td>HyperDX</td>
+          <td>Open-source production debugging with session replay, logs, traces, metrics, and errors</td>
+          <td>Competes most directly with Galecto's current UI direction and ClickHouse-centered stack story.</td>
+        </tr>
+        <tr>
+          <td>highlight.io</td>
+          <td>Open-source developer-friendly monitoring with replay and error-focused debugging</td>
+          <td>Competes in the lightweight, developer-first observability segment.</td>
+        </tr>
+        <tr>
+          <td>Sentry</td>
+          <td>Error monitoring, tracing, profiling, and replay with strong app/frontend adoption</td>
+          <td>Competes where debugging starts from user-facing issues, crashes, and replay-linked failures.</td>
+        </tr>
+        <tr>
+          <td>VORTEX</td>
+          <td>Production web traffic inspection and replay</td>
+          <td>Competes with Galecto's replay idea more than with its broader observability story.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>10.2 Where Galecto Fits in This Market</h3>
+    <p>
+      Galecto does not currently compete by breadth, maturity, or enterprise completeness. Today, the larger platforms clearly exceed it in stability, integrations, governance, alerting depth, access control, and operational trust. Galecto's most credible market position is different: it can compete as a more opinionated platform built specifically around debugging causality and verifying fixes, rather than only visualizing telemetry.
+    </p>
+
+    <h3>10.3 Galecto's Strongest USP</h3>
+    <div class="callout">
+      <strong>Galecto's clearest differentiator is this:</strong> not just observability, but <strong>causality replay for fix verification</strong>.
+    </div>
+
+    <p>
+      Most current observability tools help teams answer questions like:
+    </p>
+    <ul>
+      <li>What failed?</li>
+      <li>Where did latency increase?</li>
+      <li>Which service or dependency was involved?</li>
+      <li>What did the user experience look like?</li>
+    </ul>
+
+    <p>
+      Galecto's concept aims to go one step further:
+    </p>
+    <ul>
+      <li>Capture the request and context behind a failure.</li>
+      <li>Reconstruct the causality path.</li>
+      <li>Replay the request in a controlled manner.</li>
+      <li>Compare old and new outcomes to validate whether a fix actually worked.</li>
+    </ul>
+
+    <p>
+      That workflow is the most compelling strategic differentiator in the project. It turns observability from a read-only diagnosis tool into a verification-oriented debugging system.
+    </p>
+
+    <h3>10.4 USP Compared with Current Competitors</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Comparison Area</th>
+          <th>Typical Competitors</th>
+          <th>Potential Galecto Advantage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Logs, metrics, traces</td>
+          <td>Very strong and mature across Datadog, New Relic, Grafana, Honeycomb, SigNoz</td>
+          <td>No near-term advantage. Galecto should not try to win on raw breadth first.</td>
+        </tr>
+        <tr>
+          <td>Session replay / user replay</td>
+          <td>Strong in Datadog, Sentry, HyperDX, highlight.io</td>
+          <td>Galecto can differentiate if replay is tied to backend request causality rather than only frontend playback.</td>
+        </tr>
+        <tr>
+          <td>Distributed tracing</td>
+          <td>Strong and production-proven in Honeycomb, Datadog, New Relic, Grafana</td>
+          <td>Galecto can stand out only if trace views directly lead into replay-based validation workflows.</td>
+        </tr>
+        <tr>
+          <td>Incident investigation</td>
+          <td>Mature ecosystem support, alerts, integrations, and collaboration tooling</td>
+          <td>Galecto can become distinctive by reducing the path from incident to reproduced proof of fix.</td>
+        </tr>
+        <tr>
+          <td>Open-source cost story</td>
+          <td>SigNoz, HyperDX, highlight.io already compete here</td>
+          <td>Galecto should not rely only on being cheaper; it needs a sharper workflow differentiator.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>10.5 Honest Positioning Assessment</h3>
+    <p>
+      At present, Galecto's USP is stronger as a product concept than as a production-ready implementation. That is not a weakness in vision, but it does mean positioning must be honest. The project should not currently be presented as a broader or more complete alternative to Datadog, New Relic, or Grafana Cloud. Instead, it should be positioned as a platform with a promising differentiator in replay-centered debugging and incident verification.
+    </p>
+
+    <p>
+      The most accurate near-term positioning would be:
+    </p>
+    <div class="callout warn">
+      <strong>Galecto is best framed as an observability plus production replay verification platform, not just another observability dashboard.</strong>
+    </div>
+
+    <h3>10.6 Strategic Recommendation</h3>
+    <ul>
+      <li>Do not try to beat large incumbents on total feature count in the short term.</li>
+      <li>Do not pitch the platform as simply a cheaper Datadog or New Relic alternative.</li>
+      <li>Double down on the trace-to-replay-to-verification workflow as the core identity.</li>
+      <li>Build credibility first by making replay technically real, safe, and auditable.</li>
+      <li>Then expand outward into enterprise-grade observability capabilities around that core loop.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>11. Final Verdict</h2>
+    <p>
+      Galecto is not a broken idea. It is an under-finished implementation of a strong idea.
+    </p>
+    <p>
+      The project already demonstrates meaningful progress in system decomposition, frontend experience, Kafka-to-ClickHouse data movement, and the broad outline of an observability platform. The biggest challenge is that the current codebase has not yet crossed the line from feature-shaped prototype to production-grade enterprise system.
+    </p>
+    <p>
+      If the team first closes the correctness gaps, aligns the auth and route contracts, expands the data model, and persists key operational entities, the project could mature into a serious platform. Without those changes, the current documentation will continue to overstate the true implementation level.
+    </p>
+
+    <div class="callout">
+      <strong>Bottom line:</strong> the project is best represented today as <strong>a strong MVP with enterprise ambition</strong>, not as a fully complete enterprise observability suite.
+    </div>
+
+    <h3>Immediate Next Actions Recommended</h3>
+    <ol>
+      <li>Correct documentation to reflect actual status.</li>
+      <li>Fix the route and auth mismatches that currently block core flows.</li>
+      <li>Upgrade the telemetry schema to support real trace and replay correctness.</li>
+      <li>Persist alerts, replay history, and configuration changes.</li>
+      <li>Build test coverage around the most critical user journeys.</li>
+    </ol>
+
+    <p class="footer-note">
+      Prepared from repository inspection on May 10, 2026.
+    </p>
+  </section>
+</body>
+</html>

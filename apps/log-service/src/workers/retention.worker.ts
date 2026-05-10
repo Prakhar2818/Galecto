@@ -2,11 +2,6 @@ import cron from "node-cron";
 import { clickhouse } from "../../../../packages/clickhouse/src/client";
 import { logger } from "../../../../packages/logger/src/logger";
 
-/**
- * Retention Worker
- * Runs every night at midnight to prune old data from ClickHouse.
- * For now, it uses a global 30-day retention policy.
- */
 export function startRetentionWorker() {
   logger.info("Initializing Data Retention Worker (Daily @ Midnight)");
 
@@ -14,24 +9,41 @@ export function startRetentionWorker() {
     logger.info("Starting scheduled data pruning...");
 
     try {
-      // 1. Calculate the cutoff timestamp (30 days ago)
-      const retentionDays = 30; // This can be made dynamic by querying the DB
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-      const cutoffTimestamp = cutoffDate.getTime();
-
-      // 2. Execute ClickHouse pruning query
-      // Note: DELETE in ClickHouse is a mutation. For high-volume tables, 
-      // TTL is better, but this works well for standard SaaS tiers.
-      await clickhouse.command({
+      const result = await clickhouse.query({
         query: `
-          DELETE FROM events 
-          WHERE timestamp < {cutoff: Int64}
+          SELECT distinct tenant_id as id, 30 as retentionDays 
+          FROM events 
+          LIMIT 100
         `,
-        query_params: { cutoff: cutoffTimestamp }
+        format: 'JSONEachRow',
       });
+      
+      const organizations = await result.json() as any[];
 
-      logger.info(`Successfully pruned data older than ${retentionDays} days.`);
+      for (const org of organizations) {
+        const retentionDays = org.retentionDays || 30;
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+        const cutoffTimestamp = cutoffDate.getTime();
+
+        await clickhouse.command({
+          query: `
+            DELETE FROM events 
+            WHERE tenant_id = {tenantId:String} AND timestamp < {cutoff:Int64}
+          `,
+          query_params: { 
+            tenantId: org.id,
+            cutoff: cutoffTimestamp 
+          }
+        });
+
+        logger.info({ 
+          organizationId: org.id, 
+          retentionDays 
+        }, "Pruned data for organization");
+      }
+
+      logger.info("Successfully completed tenant-aware data pruning");
     } catch (error) {
       logger.error({ error }, "Failed to execute data pruning");
     }

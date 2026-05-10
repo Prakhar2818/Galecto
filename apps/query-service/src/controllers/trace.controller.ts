@@ -4,8 +4,9 @@ import { clickhouse } from "../../../../packages/clickhouse/src/client";
 export class TraceController {
   async listTraces(req: FastifyRequest, reply: FastifyReply) {
     try {
-      // In a real multi-tenant app, you'd extract tenantId from the auth middleware
-      // For this step, we just query the 50 most recent unique traces
+      const user = req.user as any;
+      const tenantId = user?.organizationId;
+
       const result = await clickhouse.query({
         query: `
           SELECT 
@@ -15,10 +16,12 @@ export class TraceController {
             count() as event_count,
             groupArray(service_name) as services
           FROM events
+          WHERE tenant_id = {tenantId:String}
           GROUP BY trace_id
           ORDER BY start_time DESC
           LIMIT 50
         `,
+        query_params: { tenantId: tenantId || 'default' },
         format: "JSONEachRow",
       });
 
@@ -32,17 +35,19 @@ export class TraceController {
 
   async getTraceDetails(req: FastifyRequest, reply: FastifyReply) {
     const { traceId } = req.params as { traceId: string };
+    const user = req.user as any;
+    const tenantId = user?.organizationId;
 
     try {
-      // Fetch all events for this specific traceId, ordered by time
       const result = await clickhouse.query({
         query: `
           SELECT * 
           FROM events 
-          WHERE trace_id = {traceId: String}
+          WHERE tenant_id = {tenantId:String} AND trace_id = {traceId:String}
           ORDER BY timestamp ASC
         `,
         query_params: {
+          tenantId: tenantId || 'default',
           traceId,
         },
         format: "JSONEachRow",
@@ -50,16 +55,11 @@ export class TraceController {
 
       const events: any[] = await result.json();
 
-      // Stitch the graph together into a tree
       const spanMap: Record<string, any> = {};
       const roots: any[] = [];
 
-      // First pass: create nodes and index by spanId
       events.forEach((event) => {
         const node = { ...event, children: [] };
-        // If multiple events share the same spanId (e.g. API_REQUEST and API_RESPONSE),
-        // we might want to merge them or handle them as separate points in the same span.
-        // For simplicity in a "Causality Graph", we merge events with same spanId into one span node.
         if (spanMap[event.span_id]) {
           spanMap[event.span_id].events = spanMap[event.span_id].events || [];
           spanMap[event.span_id].events.push(event);
@@ -69,7 +69,6 @@ export class TraceController {
         }
       });
 
-      // Second pass: build relationships
       Object.values(spanMap).forEach((node) => {
         if (node.parent_span_id && spanMap[node.parent_span_id]) {
           spanMap[node.parent_span_id].children.push(node);
@@ -92,6 +91,9 @@ export class TraceController {
 
   async listAnomalies(req: FastifyRequest, reply: FastifyReply) {
     try {
+      const user = req.user as any;
+      const tenantId = user?.organizationId;
+
       const result = await clickhouse.query({
         query: `
           SELECT 
@@ -100,10 +102,14 @@ export class TraceController {
             event_name as status,
             timestamp as start_time
           FROM events
-          WHERE event_name LIKE '%RESPONSE%' AND (payload LIKE '%"statusCode":4%' OR payload LIKE '%"statusCode":5%')
+          WHERE 
+            tenant_id = {tenantId:String} AND 
+            event_name LIKE '%RESPONSE%' AND 
+            JSONExtractInt(payload, 'statusCode') >= 400
           ORDER BY timestamp DESC
           LIMIT 20
         `,
+        query_params: { tenantId: tenantId || 'default' },
         format: "JSONEachRow",
       });
 
@@ -116,18 +122,22 @@ export class TraceController {
   }
   async getPerformanceMetrics(req: FastifyRequest, reply: FastifyReply) {
     try {
+      const user = req.user as any;
+      const tenantId = user?.organizationId;
+
       const result = await clickhouse.query({
         query: `
           SELECT 
             service_name,
             count() as total_requests,
-            countIf(event_name LIKE '%RESPONSE%' AND (payload LIKE '%"statusCode":4%' OR payload LIKE '%"statusCode":5%')) as errors,
+            countIf(JSONExtractInt(payload, 'statusCode') >= 400 AND JSONExtractInt(payload, 'statusCode') < 600) as errors,
             avg(JSONExtractInt(payload, 'durationMs')) as avg_latency,
             quantile(0.99)(JSONExtractInt(payload, 'durationMs')) as p99_latency
           FROM events
-          WHERE event_name LIKE '%RESPONSE%'
+          WHERE tenant_id = {tenantId:String} AND event_name LIKE '%RESPONSE%'
           GROUP BY service_name
         `,
+        query_params: { tenantId: tenantId || 'default' },
         format: "JSONEachRow",
       });
 

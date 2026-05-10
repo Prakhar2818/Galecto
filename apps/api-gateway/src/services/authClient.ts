@@ -20,4 +20,49 @@ export class AuthClient {
       headers
     );
   }
+
+  async listProjects(headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/projects`,
+      "GET",
+      undefined,
+      headers
+    );
+  }
+
+  async createProject(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/projects`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async generateProjectKey(projectId: string, data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/projects/${projectId}/keys`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async getOrganizationSettings(headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/organization/settings`,
+      "GET",
+      undefined,
+      headers
+    );
+  }
+
+  async updateOrganizationSettings(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/organization/settings`,
+      "PUT",
+      data,
+      headers
+    );
+  }
 }

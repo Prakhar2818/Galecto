@@ -1,18 +1,48 @@
 {
-  "name": "track-1",
+  "name": "galecto",
   "version": "1.0.0",
-  "description": "",
+  "description": "Enterprise Observability Platform with Causality Replay",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build --workspaces",
+    "build:auth": "cd apps/auth-service && npm run build",
+    "build:gateway": "cd apps/api-gateway && npm run build",
+    "build:query": "cd apps/query-service && npm run build",
+    "build:log": "cd apps/log-service && npm run build",
+    "build:alert": "cd apps/alert-service && npm run build",
+    "build:frontend": "cd apps/frontend && npm run build",
+    "build:api-types": "cd packages/api-types && npm run build",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspaces",
+    "test:integration": "playwright test",
+    "test:ui": "playwright test --ui",
+    "dev:all": "npm run dev --workspaces --parallel",
+    "db:generate": "cd apps/auth-service && npx prisma generate",
+    "db:push": "cd apps/auth-service && npx prisma db push",
+    "db:migrate": "cd apps/auth-service && npx prisma migrate dev"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "observability",
+    "tracing",
+    "logging",
+    "monitoring",
+    "replay"
+  ],
+  "author": "Galecto Team",
   "license": "ISC",
   "type": "commonjs",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "devDependencies": {
+    "@playwright/test": "^1.42.0",
     "@types/node": "^25.6.0",
     "eslint": "^10.2.1",
+    "html-pdf": "^3.0.1",
+    "markdown-pdf": "^11.0.0",
     "prettier": "^3.8.3",
     "ts-node-dev": "^2.0.0",
     "typescript": "^6.0.3"

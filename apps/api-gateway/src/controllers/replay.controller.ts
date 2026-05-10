@@ -1,16 +1,25 @@
 import { FastifyRequest, FastifyReply } from "fastify";
+import { PrismaClient } from "@prisma/client";
 import { clickhouse } from "../../../../packages/clickhouse/src/client";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../../../../packages/logger/src/logger";
+import { replayProtection } from "../services/replay-protection";
+
+const prisma = new PrismaClient();
 
 export class ReplayController {
-  
+   
   async executeReplay(req: FastifyRequest, reply: FastifyReply) {
     const { traceId } = req.params as { traceId: string };
+    const user = (req as any).user;
+    const organizationId = user?.organizationId;
+
+    if (!organizationId) {
+      return reply.status(401).send({ error: "Organization context required" });
+    }
 
     try {
-      // 1. Fetch original request metadata from ClickHouse
       const result = await clickhouse.query({
         query: `
           SELECT payload 
@@ -28,20 +37,38 @@ export class ReplayController {
       }
 
       const originalPayload = JSON.parse(row[0].payload);
-      const { method, url, headers, body } = originalPayload;
+      let { method, url, headers, body } = originalPayload;
 
-      // 2. Prepare the Replay Request
+      const urlValidation = replayProtection.validateTargetUrl(url);
+      if (!urlValidation.valid) {
+        return reply.status(400).send({ error: urlValidation.error });
+      }
+
+      headers = replayProtection.filterHeaders(headers);
+      body = replayProtection.maskPii(body);
+      body = replayProtection.redactSensitiveFields(body);
+
+      const replayExecution = await prisma.replayExecution.create({
+        data: {
+          traceId,
+          organizationId,
+          status: 'RUNNING',
+          requestMethod: method,
+          requestUrl: url,
+          requestHeaders: JSON.stringify(headers),
+          requestBody: body ? JSON.stringify(body) : null,
+        }
+      });
+
       const replayTraceId = `replay_${uuidv4()}`;
       
       logger.info({ 
         originalTraceId: traceId, 
         replayTraceId, 
-        message: "Executing shadow replay" 
+        replayId: replayExecution.id,
+        message: "Executing protected shadow replay" 
       });
 
-      // 3. Re-fire the request
-      // Note: We point to localhost:3001 (the gateway itself) or the service directly.
-      // To simulate a full cycle, we send it through the gateway again but with a Replay header.
       try {
         const response = await axios({
           method,
@@ -53,16 +80,38 @@ export class ReplayController {
             'x-original-trace-id': traceId,
             'x-galecto-replay': 'true'
           },
-          validateStatus: () => true // Don't throw on 4xx/5xx
+          validateStatus: () => true
+        });
+
+        const maskedResponse = replayProtection.maskPii(response.data);
+
+        await prisma.replayExecution.update({
+          where: { id: replayExecution.id },
+          data: {
+            status: 'COMPLETED',
+            responseStatus: response.status,
+            responseBody: JSON.stringify(maskedResponse),
+            completedAt: new Date()
+          }
         });
 
         return reply.send({ 
           success: true, 
+          replayId: replayExecution.id,
           replayTraceId, 
           originalTraceId: traceId,
           statusCode: response.status 
         });
       } catch (axiosError: any) {
+        await prisma.replayExecution.update({
+          where: { id: replayExecution.id },
+          data: {
+            status: 'FAILED',
+            errorMessage: axiosError.message,
+            completedAt: new Date()
+          }
+        });
+
         return reply.status(500).send({ 
           error: "Failed to re-fire request", 
           details: axiosError.message 
@@ -73,5 +122,22 @@ export class ReplayController {
       logger.error({ error }, "Replay execution failed");
       return reply.status(500).send({ error: "Internal server error during replay" });
     }
+  }
+
+  async listReplays(req: FastifyRequest, reply: FastifyReply) {
+    const user = (req as any).user;
+    const organizationId = user?.organizationId;
+
+    if (!organizationId) {
+      return reply.status(401).send({ error: "Organization context required" });
+    }
+
+    const replays = await prisma.replayExecution.findMany({
+      where: { organizationId },
+      orderBy: { executedAt: 'desc' },
+      take: 50
+    });
+
+    return { success: true, data: replays };
   }
 }

@@ -4,10 +4,12 @@ import { clickhouse } from "../../../../packages/clickhouse/src/client";
 export class LogController {
   async listLogs(req: FastifyRequest, reply: FastifyReply) {
     const { service, search, limit = 100 } = req.query as any;
+    const user = req.user as any;
+    const tenantId = user?.organizationId;
 
     try {
-      let whereClause = "1=1";
-      const params: any = {};
+      let whereClause = "tenant_id = {tenantId:String}";
+      const params: any = { tenantId: tenantId || 'default' };
 
       if (service) {
         whereClause += " AND service_name = {service: String}";

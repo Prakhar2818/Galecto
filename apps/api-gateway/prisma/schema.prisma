@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  retentionDays Int      @default(30)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  users         User[]
+  projects      Project[]
+  alerts        Alert[]
+  replayExecutions ReplayExecution[]
+  notificationChannels NotificationChannel[]
+  savedSearches SavedSearch[]
+  dashboards    Dashboard[]
+  deployMarkers DeployMarker[]
+  sloDefinitions SloDefinition[]
+  apiKeyAuditLogs ApiKeyAuditLog[]
+  apiKeys        ApiKey[]
+}
+
+model User {
+  id             String       @id @default(uuid())
+  email          String       @unique
+  password       String
+  role           Role         @default(OBSERVER)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Project {
+  id             String       @id @default(uuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Alert {
+  id            String       @id @default(uuid())
+  traceId       String
+  service       String
+  type          String
+  message       String
+  status        String       @default("ACTIVE")
+  severity      String       @default("MEDIUM")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  assignedTo    String?
+  slaDueAt      DateTime?
+  createdAt     DateTime     @default(now())
+  resolvedAt    DateTime?
+}
+
+model ReplayExecution {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  traceId         String
+  startTime       DateTime @default(now())
+  endTime         DateTime?
+  status          String
+  result          Json?
+  requestMethod   String?
+  requestUrl      String?
+  requestHeaders  String?
+  requestBody     String?
+  executedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+}
+
+model SavedSearch {
+  id             String       @id @default(uuid())
+  name           String
+  query          String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+}
+
+model Dashboard {
+  id             String       @id @default(uuid())
+  name           String
+  config         Json
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model DeployMarker {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  service         String
+  version         String
+  environment     String
+  commitSha       String?
+  deployedBy      String
+  deployedAt      DateTime @default(now())
+}
+
+model SloDefinition {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  service         String
+  sloType         String
+  threshold       Float
+  window          String
+  createdAt       DateTime @default(now())
+}
+
+model NotificationChannel {
+  id             String       @id @default(uuid())
+  name           String
+  type           String
+  config         Json
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+}
+
+model ApiKey {
+  id             String       @id @default(uuid())
+  key            String       @unique
+  name           String
+  role           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model ApiKeyAuditLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  apiKeyId       String
+  action         String
+  metadata       Json?
+  performedAt    DateTime     @default(now())
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  DEVELOPER
+  OBSERVER
+}

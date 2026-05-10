@@ -2,7 +2,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import { clickhouse, initializeClickHouseSchemas } from "../../../packages/clickhouse/src/client";
 import { createConsumer } from "../../../packages/kafka/src/consumer";
-import { IEvent } from "../../../packages/types/src/index";
+import { IEvent } from "../../../packages/api-types/src/index";
 
 const app = Fastify({ logger: true });
 
@@ -11,7 +11,6 @@ async function start() {
     await initializeClickHouseSchemas();
     app.log.info("Initialized ClickHouse schemas");
 
-    // Start background maintenance workers
     const { startRetentionWorker } = require("./workers/retention.worker");
     startRetentionWorker();
 
@@ -26,10 +25,13 @@ async function start() {
               tenant_id: event.tenantId || "default",
               trace_id: event.traceId,
               span_id: event.spanId || "",
+              parent_span_id: event.parentSpanId || "",
               event_name: event.name,
               service_name: event.service,
               timestamp: event.timestamp,
               payload: JSON.stringify(event.payload),
+              duration_ms: event.payload?.durationMs || 0,
+              status_code: event.payload?.statusCode || 0,
             }
           ],
           format: 'JSONEachRow',

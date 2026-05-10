@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galecto Platform User Guide</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 15mm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.5;
+      color: #16202a;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 { font-size: 24pt; color: #0f3d56; border-bottom: 2px solid #0f766e; padding-bottom: 10px; margin-top: 30px; }
+    h2 { font-size: 16pt; color: #0f3d56; margin-top: 25px; }
+    h3 { font-size: 13pt; color: #0f766e; }
+    code {
+      background: #f4f8fa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', monospace;
+      font-size: 10pt;
+    }
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 10pt;
+    }
+    pre code { background: none; padding: 0; color: #e2e8f0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+    th, td {
+      border: 1px solid #d7e1e7;
+      padding: 10px;
+      text-align: left;
+    }
+    th { background: #f4f8fa; font-weight: bold; }
+    .note {
+      background: #fff0d6;
+      border-left: 4px solid #b45309;
+      padding: 10px 15px;
+      margin: 15px 0;
+    }
+    .warning {
+      background: #fee4e2;
+      border-left: 4px solid #b42318;
+      padding: 10px 15px;
+      margin: 15px 0;
+    }
+    .success {
+      background: #dcfce7;
+      border-left: 4px solid #166534;
+      padding: 10px 15px;
+      margin: 15px 0;
+    }
+    ul, ol { margin: 10px 0; padding-left: 25px; }
+    li { margin: 5px 0; }
+    .toc { background: #f4f8fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    .toc a { text-decoration: none; color: #0f766e; }
+    .toc a:hover { text-decoration: underline; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header img { max-width: 200px; }
+    .section { page-break-after: always; }
+    .no-break { page-break-after: avoid; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Galecto Platform</h1>
+  <p><strong>User Guide Manual</strong></p>
+  <p>Version 1.0 | Enterprise Observability Platform</p>
+</div>
+
+<div class="toc">
+  <h3>Table of Contents</h3>
+  <ol>
+    <li><a href="#1">Platform Overview</a></li>
+    <li><a href="#2">Getting Started</a></li>
+    <li><a href="#3">Authentication</a></li>
+    <li><a href="#4">Dashboard Overview</a></li>
+    <li><a href="#5">Traces & Causality</a></li>
+    <li><a href="#6">Logs Explorer</a></li>
+    <li><a href="#7">System Monitoring</a></li>
+    <li><a href="#8">Alerts & Incidents</a></li>
+    <li><a href="#9">Replay Feature</a></li>
+    <li><a href="#10">Project Management</a></li>
+    <li><a href="#11">API Keys</a></li>
+    <li><a href="#12">Notifications</a></li>
+    <li><a href="#13">Dashboards & Saved Searches</a></li>
+    <li><a href="#14">SLOs & Burn Rate</a></li>
+    <li><a href="#15">Deploy Markers</a></li>
+    <li><a href="#16">Settings & Retention</a></li>
+    <li><a href="#17">OTLP Integration</a></li>
+    <li><a href="#18">API Reference</a></li>
+    <li><a href="#19">Troubleshooting</a></li>
+  </ol>
+</div>
+
+<!-- SECTION 1: Platform Overview -->
+<div class="section" id="1">
+<h1>1. Platform Overview</h1>
+
+<h2>What is Galecto?</h2>
+<p>Galecto is an <strong>enterprise-grade observability platform</strong> that combines:</p>
+<ul>
+  <li><strong>Distributed Tracing</strong> - Track requests across services</li>
+  <li><strong>Log Aggregation</strong> - Search and analyze logs</li>
+  <li><strong>Metrics & Monitoring</strong> - Real-time system health</li>
+  <li><strong>Alert Management</strong> - Incident tracking with SLA</li>
+  <li><strong>Replay Feature</strong> - Reproduce issues for debugging</li>
+  <li><strong>SLO Tracking</strong> - Monitor service level objectives</li>
+</ul>
+
+<h2>Architecture</h2>
+<table>
+  <tr><th>Service</th><th>Port</th><th>Purpose</th></tr>
+  <tr><td>Frontend</td><td>3000</td><td>Web UI</td></tr>
+  <tr><td>API Gateway</td><td>3001</td><td>Ingress, Replay, OTLP</td></tr>
+  <tr><td>Auth Service</td><td>4000</td><td>Authentication, RBAC</td></tr>
+  <tr><td>Log Service</td><td>4001</td><td>Kafka → ClickHouse</td></tr>
+  <tr><td>Query Service</td><td>4002</td><td>Traces, Logs, Metrics</td></tr>
+  <tr><td>Alert Service</td><td>5003</td><td>Alert Detection</td></tr>
+</table>
+
+<h2>Technology Stack</h2>
+<ul>
+  <li><strong>Frontend:</strong> Next.js, React, Tailwind CSS</li>
+  <li><strong>Backend:</strong> Fastify (Node.js)</li>
+  <li><strong>Database:</strong> PostgreSQL (metadata), ClickHouse (telemetry)</li>
+  <li><strong>Message Queue:</strong> Kafka</li>
+  <li><strong>Caching:</strong> Redis</li>
+</ul>
+</div>
+
+<!-- SECTION 2: Getting Started -->
+<div class="section" id="2">
+<h1>2. Getting Started</h1>
+
+<h2>Prerequisites</h2>
+<ul>
+  <li>Node.js 20+</li>
+  <li>PostgreSQL (running on localhost:5432)</li>
+  <li>Redis (running on localhost:6379)</li>
+  <li>Kafka (running on localhost:9092)</li>
+  <li>ClickHouse (running on localhost:8123)</li>
+</ul>
+
+<h2>Installation Steps</h2>
+
+<h3>Step 1: Clone & Install</h3>
+<pre><code>git clone &lt;repo-url&gt; galecto
+cd galecto
+npm install</code></pre>
+
+<h3>Step 2: Setup Database</h3>
+<pre><code>cd apps/auth-service
+npx prisma generate
+npx prisma db push</code></pre>
+
+<h3>Step 3: Start Services</h3>
+<pre><code>cd ../..
+npm run dev:all</code></pre>
+
+<h3>Step 4: Access Platform</h3>
+<p>Open browser: <code>http://localhost:3000</code></p>
+
+<div class="success">
+<strong>First Time:</strong> Register a new account - it will automatically create your organization, default project, and API key.
+</div>
+</div>
+
+<!-- SECTION 3: Authentication -->
+<div class="section" id="3">
+<h1>3. Authentication</h1>
+
+<h2>User Roles</h2>
+<table>
+  <tr><th>Role</th><th>Permissions</th></tr>
+  <tr><td>OWNER</td><td>Full access, can delete organization</td></tr>
+  <tr><td>ADMIN</td><td>Manage projects, keys, settings</td></tr>
+  <tr><td>DEVELOPER</td><td>Create resources, view all data</td></tr>
+  <tr><td>OBSERVER</td><td>Read-only access</td></tr>
+</table>
+
+<h2>Registration</h2>
+<ol>
+  <li>Go to <code>http://localhost:3000/register</code></li>
+  <li>Enter email, password, organization name</li>
+  <li>Click "Create Account"</li>
+  <li>Automatically redirected to dashboard</li>
+</ol>
+
+<h2>Login</h2>
+<ol>
+  <li>Go to <code>http://localhost:3000/login</code></li>
+  <li>Enter credentials</li>
+  <li>JWT token stored in localStorage</li>
+</ol>
+
+<div class="note">
+<strong>Token Expiry:</strong> Tokens expire after 24 hours. Re-login required.
+</div>
+</div>
+
+<!-- SECTION 4: Dashboard -->
+<div class="section" id="4">
+<h1>4. Dashboard Overview</h1>
+
+<p>After login, you see the main dashboard with:</p>
+<ul>
+  <li><strong>System Overview</strong> - Quick stats</li>
+  <li><strong>Recent Traces</strong> - Latest requests</li>
+  <li><strong>Active Alerts</strong> - Current incidents</li>
+  <li><strong>Quick Links</strong> - Navigate to features</li>
+</ul>
+
+<h2>Navigation</h2>
+<table>
+  <tr><th>Page</th><th>URL</th><th>Description</th></tr>
+  <tr><td>Dashboard</td><td>/dashboard</td><td>Main overview</td></tr>
+  <tr><td>Traces</td><td>/traces</td><td>Distributed tracing</td></tr>
+  <tr><td>Logs</td><td>/logs</td><td>Log search</td></tr>
+  <tr><td>Monitoring</td><td>/monitoring</td><td>System metrics</td></tr>
+  <tr><td>Alerts</td><td>/alerts</td><td>Incident management</td></tr>
+  <tr><td>Replay</td><td>/replay</td><td>Request replay</td></tr>
+  <tr><td>Settings</td><td>/settings</td><td>Projects, keys, retention</td></tr>
+</table>
+</div>
+
+<!-- SECTION 5: Traces -->
+<div class="section" id="5">
+<h1>5. Traces & Causality</h1>
+
+<h2>View Traces</h2>
+<p>Go to: <code>http://localhost:3000/traces</code></p>
+
+<h3>Features:</h3>
+<ul>
+  <li>List of recent traces with timestamps</li>
+  <li>Click any trace to see causality tree</li>
+  <li>View span relationships (parent-child)</li>
+  <li>Filter by service</li>
+</ul>
+
+<h2>Causality Tree</h2>
+<p>Each trace shows as a tree structure:</p>
+<ul>
+  <li><strong>Root Span</strong> - Entry point</li>
+  <li><strong>Child Spans</strong> - Downstream calls</li>
+  <li><strong>Duration</strong> - Time taken</li>
+  <li><strong>Status</strong> - Success/Error</li>
+</ul>
+
+<h2>Anomalies</h2>
+<p>View error traces: <code>/api/v1/traces/anomalies</code></p>
+
+<h3>Filter by:</h3>
+<ul>
+  <li>Error status (4xx, 5xx)</li>
+  <li>High latency (>500ms)</li>
+  <li>Service name</li>
+</ul>
+
+<div class="note">
+<strong>Trace ID:</strong> Each request gets unique trace_id for tracking across services.
+</div>
+</div>
+
+<!-- SECTION 6: Logs -->
+<div class="section" id="6">
+<h1>6. Logs Explorer</h1>
+
+<h2>Search Logs</h2>
+<p>Go to: <code>http://localhost:3000/logs</code></p>
+
+<h3>Search Options:</h3>
+<ul>
+  <li><strong>Text Search</strong> - Search in message/payload</li>
+  <li><strong>Service Filter</strong> - Filter by service name</li>
+  <li><strong>Time Range</strong> - Filter by timestamp</li>
+</ul>
+
+<h2>Log Fields</h2>
+<table>
+  <tr><th>Field</th><th>Description</th></tr>
+  <tr><td>timestamp</td><td>When log was created</td></tr>
+  <tr><td>service_name</td><td>Which service generated</td></tr>
+  <tr><td>event_name</td><td>Type of event</td></tr>
+  <tr><td>payload</td><td>Structured data</td></tr>
+</table>
+
+<h2>Export</h2>
+<p>Click "Export JSON" to download search results.</p>
+</div>
+
+<!-- SECTION 7: Monitoring -->
+<div class="section" id="7">
+<h1>7. System Monitoring</h1>
+
+<h2>Metrics Dashboard</h2>
+<p>Go to: <code>http://localhost:3000/monitoring</code></p>
+
+<h3>Available Metrics:</h3>
+<ul>
+  <li><strong>Total Requests</strong> - Request count per service</li>
+  <li><strong>P99 Latency</strong> - 99th percentile response time</li>
+  <li><strong>Error Rate</strong> - Percentage of 4xx/5xx</li>
+  <li><strong>Cluster Health</strong> - Service status</li>
+</ul>
+
+<h2>Real-time Updates</h2>
+<p>Metrics refresh every 10 seconds automatically.</p>
+
+<div class="note">
+<strong>Live Ingestion:</strong> Shows active Kafka processing status.
+</div>
+</div>
+
+<!-- SECTION 8: Alerts -->
+<div class="section" id="8">
+<h1>8. Alerts & Incidents</h1>
+
+<h2>Alert Types</h2>
+<table>
+  <tr><th>Type</th><th>Trigger</th></tr>
+  <tr><td>ERROR</td><td>HTTP status >= 400</td></tr>
+  <tr><td>LATENCY</td><td>Response time > 500ms</td></tr>
+</table>
+
+<h2>Severity Levels</h2>
+<ul>
+  <li><strong>CRITICAL</strong> - Immediate attention</li>
+  <li><strong>HIGH</strong> - Urgent</li>
+  <li><strong>MEDIUM</strong> - Normal priority</li>
+  <li><strong>LOW</strong> - Minor</li>
+  <li><strong>INFO</strong> - Informational</li>
+</ul>
+
+<h2>Incident Lifecycle</h2>
+<ol>
+  <li><strong>ACTIVE</strong> - New alert triggered</li>
+  <li><strong>ACKNOWLEDGED</strong> - Someone is working on it</li>
+  <li><strong>RESOLVED</strong> - Issue fixed</li>
+</ol>
+
+<h2>Manage Alerts</h2>
+<p>Go to: <code>http://localhost:3000/alerts</code></p>
+<ul>
+  <li>Click "Resolve" to close an alert</li>
+  <li>Add notes to track investigation</li>
+  <li>Set SLA due dates</li>
+  <li>Assign to team members</li>
+</ul>
+</div>
+
+<!-- SECTION 9: Replay -->
+<div class="section" id="9">
+<h1>9. Replay Feature</h1>
+
+<h2>What is Replay?</h2>
+<p>Replay allows you to <strong>reproduce</strong> a past request to verify fixes without affecting production.</p>
+
+<h2>How to Use</h2>
+<ol>
+  <li>Go to Traces page</li>
+  <li>Select a trace</li>
+  <li>Click "Run Replay"</li>
+  <li>System reconstructs the request</li>
+  <li>Executes in controlled environment</li>
+</ol>
+
+<h2>Safety Features</h2>
+<ul>
+  <li><strong>PII Masking</strong> - Masks sensitive data</li>
+  <li><strong>Header Filtering</strong> - Removes auth tokens</li>
+  <li><strong>URL Allowlist</strong> - Only localhost/staging allowed</li>
+  <li><strong>Redaction</strong> - Removes passwords/secrets</li>
+</ul>
+
+<h2>View Replay History</h2>
+<p>API: <code>GET /api/v1/replays</code></p>
+
+<div class="warning">
+<strong>Important:</strong> Replay executes real requests. Ensure target environment is test/staging.
+</div>
+</div>
+
+<!-- SECTION 10: Project Management -->
+<div class="section" id="10">
+<h1>10. Project Management</h1>
+
+<h2>Create Project</h2>
+<p>Go to: <code>http://localhost:3000/settings</code> → Projects</p>
+
+<h3>Project Environments:</h3>
+<ul>
+  <li><strong>DEVELOPMENT</strong> - For dev testing</li>
+  <li><strong>STAGING</strong> - Pre-production</li>
+  <li><strong>PRODUCTION</strong> - Live environment</li>
+</ul>
+
+<h2>Multi-Project Setup</h2>
+<p>Create separate projects for:</p>
+<ul>
+  <li>Different applications</li>
+  <li>Different environments</li>
+  <li>Different teams</li>
+</ul>
+
+<h2>API: Project Operations</h2>
+<pre><code>GET /projects          # List all projects
+POST /projects          # Create new project
+POST /projects/:id/keys # Generate API key</code></pre>
+</div>
+
+<!-- SECTION 11: API Keys -->
+<div class="section" id="11">
+<h1>11. API Keys</h1>
+
+<h2>Generate API Key</h2>
+<ol>
+  <li>Go to Settings → Projects</li>
+  <li>Select project</li>
+  <li>Click "+ New Key"</li>
+  <li>Enter key name</li>
+  <li>Set expiry (optional)</li>
+  <li>Define scope (ingest/read/write)</li>
+</ol>
+
+<h2>Key Scopes</h2>
+<table>
+  <tr><th>Scope</th><th>Purpose</th></tr>
+  <tr><td>ingest</td><td>Send telemetry data</td></tr>
+  <tr><td>read</td><td>Query traces/logs</td></tr>
+  <tr><td>write</td><td>Create resources</td></tr>
+</table>
+
+<h2>Key Rotation</h2>
+<p>To rotate a key (without downtime):</p>
+<ol>
+  <li>Create new key</li>
+  <li>Update applications to use new key</li>
+  <li>Revoke old key</li>
+</ol>
+
+<h2>API: Key Operations</h2>
+<pre><code>POST /projects/keys/:id/rotate   # Rotate key
+POST /projects/keys/:id/revoke    # Revoke key
+GET  /projects/keys/audit-logs     # View history</code></pre>
+
+<div class="note">
+<strong>Security:</strong> Keys are shown only once at creation. Store securely!
+</div>
+</div>
+
+<!-- SECTION 12: Notifications -->
+<div class="section" id="12">
+<h1>12. Notifications</h2>
+
+<h2>Supported Channels</h2>
+<ul>
+  <li><strong>Email</strong> - Send alerts to email</li>
+  <li><strong>Slack</strong> - Post to Slack channel</li>
+  <li><strong>Webhook</strong> - HTTP POST to URL</li>
+  <li><strong>PagerDuty</strong> - Incident management</li>
+</ul>
+
+<h2>Configure Channel</h2>
+<ol>
+  <li>Go to Settings or use API</li>
+  <li>Create notification channel</li>
+  <li>Configure credentials</li>
+  <li>Enable/disable as needed</li>
+</ol>
+
+<h2>API: Notification Operations</h2>
+<pre><code>GET  /notifications           # List channels
+POST /notifications           # Create channel
+PUT  /notifications/:id      # Update
+DELETE /notifications/:id    # Remove</code></pre>
+</div>
+
+<!-- SECTION 13: Dashboards -->
+<div class="section" id="13">
+<h1>13. Dashboards & Saved Searches</h1>
+
+<h2>Saved Searches</h2>
+<p>Save frequently used log/trace searches:</p>
+<ol>
+  <li>Configure search filters</li>
+  <li>Click "Save Search"</li>
+  <li>Name your search</li>
+  <li>Access later from dropdown</li>
+</ol>
+
+<h2>Custom Dashboards</h2>
+<p>Create personalized views:</p>
+<ul>
+  <li>Add panels (charts, tables)</li>
+  <li>Configure data sources</li>
+  <li>Set refresh intervals</li>
+  <li>Share with team</li>
+</ul>
+
+<h2>API: Dashboard Operations</h2>
+<pre><code>GET  /dashboards              # List dashboards
+POST /dashboards              # Create dashboard
+GET  /dashboards/searches    # List saved searches
+POST /dashboards/searches     # Save search</code></pre>
+</div>
+
+<!-- SECTION 14: SLOs -->
+<div class="section" id="14">
+<h1>14. SLOs & Burn Rate</h1>
+
+<h2>What is SLO?</h2>
+<p><strong>Service Level Objective</strong> - Target metrics for your service.</p>
+
+<h2>Create SLO</h2>
+<ol>
+  <li>Define indicator type:</li>
+  <ul>
+    <li><strong>error_rate</strong> - Percentage of failed requests</li>
+    <li><strong>latency</strong> - Response time threshold</li>
+    <li><strong>availability</strong> - Uptime percentage</li>
+  </ul>
+  <li>Set target percentage (e.g., 99.9%)</li>
+  <li>Choose time window (default: 7 days)</li>
+</ol>
+
+<h2>Monitor SLO Status</h2>
+<p>View: <code>GET /api/v1/slo-status</code></p>
+
+<h3>SLO Status Fields:</h3>
+<ul>
+  <li>totalRequests - Total requests in window</li>
+  <li>errorCount - Number of errors</li>
+  <li>successRate - Percentage successful</li>
+  <li>meetsErrorSlo - Boolean (error threshold met)</li>
+  <li>meetsLatencySlo - Boolean (latency threshold met)</li>
+</ul>
+
+<div class="note">
+<strong>Burn Rate:</strong> How fast you're consuming your error budget. High burn rate = alert!
+</div>
+</div>
+
+<!-- SECTION 15: Deploy Markers -->
+<div class="section" id="15">
+<h1>15. Deploy Markers</h1>
+
+<h2>Purpose</h2>
+<p>Correlate incidents with deployments for root cause analysis.</p>
+
+<h2>Create Deploy Marker</h2>
+<pre><code>POST /platform/deploys
+{
+  "service": "api-gateway",
+  "version": "1.2.3",
+  "environment": "production",
+  "commitSha": "abc123"
+}</code></pre>
+
+<h2>View Deploy History</h2>
+<p>API: <code>GET /platform/deploys</code></p>
+
+<h2>Incident Correlation</h2>
+<p>When investigating an alert, check:</p>
+<ol>
+  <li>Go to Alerts</li>
+  <li>Select incident</li>
+  <li>Check "Deploy Markers" timeline</li>
+  <li>See if deployment preceded the issue</li>
+</ol>
+</div>
+
+<!-- SECTION 16: Settings -->
+<div class="section" id="16">
+<h1>16. Settings & Retention</h1>
+
+<h2>Data Retention</h2>
+<p>Configure how long data is stored:</p>
+<ul>
+  <li>7 Days</li>
+  <li>14 Days</li>
+  <li>30 Days (default)</li>
+  <li>90 Days</li>
+</ul>
+
+<h2>Update Retention</h2>
+<ol>
+  <li>Go to Settings → Data Retention</li>
+  <li>Select retention period</li>
+  <li>Click "Update"</li>
+</ol>
+
+<h2>API: Settings</h2>
+<pre><code>GET /organization/settings    # Get current settings
+PUT /organization/settings    # Update settings</code></pre>
+
+<div class="warning">
+<strong>Note:</strong> Reducing retention will permanently delete older data.
+</div>
+</div>
+
+<!-- SECTION 17: OTLP -->
+<div class="section" id="17">
+<h1>17. OTLP Integration</h1>
+
+<h2>OpenTelemetry Support</h2>
+<p>Galecto supports OTLP protocol for:</p>
+<ul>
+  <li><strong>Traces</strong> - Distributed tracing data</li>
+  <li><strong>Metrics</strong> - Custom metrics</li>
+  <li><strong>Logs</strong> - Structured logs</li>
+</ul>
+
+<h2>Endpoints</h2>
+<table>
+  <tr><th>Data Type</th><th>Endpoint</th></tr>
+  <tr><td>Traces</td><td>POST /v1/traces</td></tr>
+  <tr><td>Metrics</td><td>POST /v1/metrics</td></tr>
+  <tr><td>Logs</td><td>POST /v1/logs</td></tr>
+</table>
+
+<h2>Authentication</h2>
+<p>Use API key in Authorization header:</p>
+<pre><code>Authorization: Bearer YOUR_API_KEY</code></pre>
+
+<h2>Example: Send Traces</h2>
+<pre><code>curl -X POST http://localhost:3001/v1/traces \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"resourceSpans":[{"scopeSpans":[{"spans":[{"traceId":"...","name":"test"}]}]}]}'</code></pre>
+
+<div class="success">
+<strong>Compatible with:</strong> OpenTelemetry SDKs, Jaeger exporters, Prometheus (metrics), Fluentd (logs)
+</div>
+</div>
+
+<!-- SECTION 18: API Reference -->
+<div class="section" id="18">
+<h1>18. API Reference</h1>
+
+<h2>Base URLs</h2>
+<table>
+  <tr><th>Service</th><th>URL</th></tr>
+  <tr><td>Auth Service</td><td>http://localhost:4000</td></tr>
+  <tr><td>API Gateway</td><td>http://localhost:3001</td></tr>
+  <tr><td>Query Service</td><td>http://localhost:4002</td></tr>
+</table>
+
+<h2>Authentication</h2>
+<p>All protected endpoints require:</p>
+<pre><code>Authorization: Bearer YOUR_JWT_TOKEN</code></pre>
+
+<h2>Core Endpoints</h2>
+
+<h3>Auth Service (port 4000)</h3>
+<pre><code>POST /auth/register   # Create account
+POST /auth/login     # Get JWT token
+POST /auth/verify-api-key  # Verify API key</code></pre>
+
+<h3>Projects (port 4000)</h3>
+<pre><code>GET    /projects              # List projects
+POST   /projects              # Create project
+POST   /projects/:id/keys    # Generate API key
+POST   /projects/keys/:id/rotate  # Rotate key
+POST   /projects/keys/:id/revoke  # Revoke key</code></pre>
+
+<h3>Query Service (port 4002)</h3>
+<pre><code>GET /api/v1/traces          # List traces
+GET /api/v1/traces/:id      # Trace details
+GET /api/v1/traces/anomalies # Error traces
+GET /api/v1/traces/metrics  # Performance metrics
+GET /api/v1/logs            # Search logs
+GET /api/v1/service-map     # Dependency map
+GET /api/v1/slo-status      # SLO status</code></pre>
+
+<h3>Gateway (port 3001)</h3>
+<pre><code>POST /api/v1/ingest         # Send telemetry
+POST /api/v1/replay/:traceId # Replay request
+GET  /api/v1/replays        # Replay history</code></pre>
+</div>
+
+<!-- SECTION 19: Troubleshooting -->
+<div class="section" id="19">
+<h1>19. Troubleshooting</h1>
+
+<h2>Common Issues</h2>
+
+<h3>1. Services Won't Start</h3>
+<div class="warning">
+<strong>Solution:</strong> Check dependencies are running
+<pre><code># Check PostgreSQL
+pg_isready -h localhost -p 5432
+
+# Check Redis
+redis-cli ping
+
+# Check Kafka
+kafka-topics --list --bootstrap-server localhost:9092</code></pre>
+</div>
+
+<h3>2. Database Connection Error</h3>
+<div class="warning">
+<strong>Solution:</strong> Verify DATABASE_URL in .env
+<pre><code>DATABASE_URL="postgresql://postgres:password@localhost:5432/postgres"</code></pre>
+</div>
+
+<h3>3. JWT Token Expired</h3>
+<div class="warning">
+<strong>Solution:</strong> Re-login to get new token
+<pre><code>POST /auth/login with credentials</code></pre>
+</div>
+
+<h3>4. API Key Not Working</h3>
+<div class="warning">
+<strong>Solution:</strong> 
+<ul>
+  <li>Check key is not revoked</li>
+  <li>Verify key is not expired</li>
+  <li>Ensure correct scope enabled</li>
+</ul>
+</div>
+
+<h3>5. No Data in Traces/Logs</h3>
+<div class="warning">
+<strong>Solution:</strong>
+<ol>
+  <li>Check Kafka is running</li>
+  <li>Verify ingest endpoint receiving data</li>
+  <li>Check ClickHouse has data: <code>SELECT COUNT(*) FROM events</code></li>
+</ol>
+</div>
+
+<h3>6. Alert Service Not Working</h3>
+<div class="warning">
+<strong>Solution:</strong>
+<ul>
+  <li>Check alert-service is running</li>
+  <li>Verify Kafka consumer is active</li>
+  <li>Check logs: <code>docker logs alert-service</code></li>
+</ul>
+</div>
+
+<h2>Run Tests</h2>
+<pre><code># Install Playwright
+npx playwright install --with-deps chromium
+
+# Run integration tests
+npm run test:integration</code></pre>
+
+<h2>View Logs</h2>
+<pre><code># All services
+npm run dev:all
+
+# Individual service
+cd apps/auth-service
+npm run dev</code></pre>
+
+<div class="success">
+<strong>Pro Tip:</strong> Check the GitHub Actions CI pipeline for automated testing results!
+</div>
+</div>
+
+<!-- FOOTER -->
+<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center;">
+  <p><strong>Galecto Platform User Guide</strong></p>
+  <p>Version 1.0 | Enterprise Observability with Causality Replay</p>
+  <p>For support, check documentation or contact development team</p>
+</div>
+
+</body>
+</html>

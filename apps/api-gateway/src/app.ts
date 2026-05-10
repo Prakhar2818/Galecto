@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import jwt from "@fastify/jwt";
 import { routes } from "./routes";
 import { requestContextMiddleware } from "./middleware/requestContext";
 import { loggingMiddleware, responseLoggingMiddleware } from "./middleware/logger";
@@ -12,6 +13,10 @@ export function buildApp() {
   });
 
   app.register(cors, { origin: "*" });
+
+  app.register(jwt, {
+    secret: process.env.JWT_SECRET || "secret",
+  });
 
   app.addHook("onRequest", requestContextMiddleware);
   app.addHook("preHandler", loggingMiddleware);

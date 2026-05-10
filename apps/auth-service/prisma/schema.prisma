@@ -15,13 +15,55 @@ model Organization {
   updatedAt     DateTime @updatedAt
   users         User[]
   projects      Project[]
+  alerts        Alert[]
+  replayExecutions ReplayExecution[]
+  notificationChannels NotificationChannel[]
+  savedSearches SavedSearch[]
+  dashboards    Dashboard[]
+  deployMarkers DeployMarker[]
+  sloDefinitions SloDefinition[]
+  apiKeyAuditLogs ApiKeyAuditLog[]
+}
+
+model DeployMarker {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  service         String
+  version         String
+  environment     String
+  commitSha       String?
+  deployedBy      String
+  deployedAt      DateTime @default(now())
+}
+
+model SloDefinition {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  service         String
+  indicatorType   String   // error_rate, latency, availability
+  targetPercent   Float
+  windowDays      Int      @default(7)
+  createdAt       DateTime @default(now())
+}
+
+model ApiKeyAuditLog {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  apiKeyId        String
+  action          String   // CREATED, ROTATED, REVOKED, USED
+  metadata        Json?
+  performedAt     DateTime @default(now())
 }
 
 model User {
   id             String       @id @default(uuid())
   email          String       @unique
   password       String
-  role           Role         @default(USER)
+  role           Role         @default(OBSERVER)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   createdAt      DateTime     @default(now())
@@ -31,6 +73,8 @@ model User {
 model Project {
   id             String       @id @default(uuid())
   name           String
+  environment    ProjectEnvironment @default(PRODUCTION)
+  region         String?
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   apiKeys        ApiKey[]
@@ -38,17 +82,132 @@ model Project {
   updatedAt      DateTime     @updatedAt
 }
 
+enum ProjectEnvironment {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+}
+
 model ApiKey {
-  id        String    @id @default(uuid())
-  key       String    @unique
-  name      String
-  projectId String
-  project   Project   @relation(fields: [projectId], references: [id])
-  createdAt DateTime  @default(now())
-  expiresAt DateTime?
+  id            String    @id @default(uuid())
+  key           String    @unique
+  name          String
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id])
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  lastUsedAt    DateTime?
+  scope         Json      @default("{\"ingest\":true,\"read\":true,\"write\":true}")
 }
 
 enum Role {
-  USER
+  OWNER
   ADMIN
+  DEVELOPER
+  OBSERVER
+}
+
+model Alert {
+  id            String       @id @default(uuid())
+  traceId       String
+  service       String
+  type          String       // ERROR or LATENCY
+  message       String
+  status        AlertStatus  @default(ACTIVE)
+  severity      AlertSeverity @default(MEDIUM)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  assignedTo    String?
+  slaDueAt      DateTime?
+  createdAt     DateTime     @default(now())
+  resolvedAt    DateTime?
+  notes         IncidentNote[]
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum AlertSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+model IncidentNote {
+  id        String   @id @default(uuid())
+  alertId   String
+  alert     Alert    @relation(fields: [alertId], references: [id])
+  content   String
+  authorId  String
+  createdAt DateTime @default(now())
+}
+
+model ReplayExecution {
+  id              String   @id @default(uuid())
+  traceId         String
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  status          ReplayStatus @default(PENDING)
+  requestMethod   String?
+  requestUrl      String?
+  requestHeaders  String?
+  requestBody     String?
+  responseStatus  Int?
+  responseBody    String?
+  executedAt      DateTime @default(now())
+  completedAt     DateTime?
+  errorMessage    String?
+}
+
+enum ReplayStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model NotificationChannel {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  type            NotificationType
+  name            String
+  config          Json     // webhook URL, email, slack token, etc.
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}
+
+enum NotificationType {
+  EMAIL
+  SLACK
+  WEBHOOK
+  PAGERDUTY
+}
+
+model SavedSearch {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  query           String
+  filters         Json?
+  createdBy       String
+  createdAt       DateTime @default(now())
+}
+
+model Dashboard {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  config          Json     // Panel layout, widgets, etc.
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

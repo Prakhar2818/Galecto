@@ -2,7 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { container } from "../container";
 import { AuthService } from "../services/auth.service";
 import { sendEvent } from "../../../../packages/kafka/src/producer";
-import { EventType, IEvent } from "../../../../packages/types/src/index";
+import { EventType, IEvent } from "../../../../packages/api-types/src/index";
 import { v4 as uuidv4 } from "uuid";
 
 export class AuthController {

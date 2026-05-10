@@ -1,0 +1,21 @@
+{
+  "name": "@galecto/api-types",
+  "version": "1.0.0",
+  "description": "Shared API contract types for Galecto platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No tests specified\""
+  },
+  "keywords": ["galecto", "api", "types", "contracts"],
+  "author": "Galecto Team",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  }
+}

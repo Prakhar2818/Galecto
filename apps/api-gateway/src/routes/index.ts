@@ -1,23 +1,60 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { HealthController } from "../controllers/health.controller";
 import { authMiddleware } from "../middleware/auth";
 import { sendEvent } from "../../../../packages/kafka/src/producer";
-import { EventType, IEvent } from "../../../../packages/types/src/index";
+import { EventType, IEvent } from "../../../../packages/api-types/src/index";
 import { v4 as uuidv4 } from "uuid";
 
 import { ReplayController } from "../controllers/replay.controller";
+import { OtlpController } from "../controllers/otlp.controller";
+
+async function jwtAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    reply.status(401).send({ error: "Unauthorized", message: "Invalid or missing token" });
+  }
+}
 
 export async function routes(fastify: FastifyInstance) {
   const controller = new HealthController();
   const replayController = new ReplayController();
+  const otlpController = new OtlpController();
 
   fastify.get("/health", async () => {
     return controller.getHealth();
   });
 
+  // OTLP endpoints (OpenTelemetry compatible)
+  fastify.post(
+    "/v1/traces",
+    { preHandler: [authMiddleware] },
+    async (request, reply) => otlpController.receiveTraces(request, reply)
+  );
+
+  fastify.post(
+    "/v1/metrics",
+    { preHandler: [authMiddleware] },
+    async (request, reply) => otlpController.receiveMetrics(request, reply)
+  );
+
+  fastify.post(
+    "/v1/logs",
+    { preHandler: [authMiddleware] },
+    async (request, reply) => otlpController.receiveLogs(request, reply)
+  );
+
+  fastify.get(
+    "/api/v1/replays",
+    { preHandler: [jwtAuthMiddleware] },
+    async (request, reply) => {
+      return replayController.listReplays(request, reply);
+    }
+  );
+
   fastify.post(
     "/api/v1/replay/:traceId",
-    { preHandler: [authMiddleware] },
+    { preHandler: [jwtAuthMiddleware] },
     async (request, reply) => {
       return replayController.executeReplay(request, reply);
     }

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galecto Platform - User Manual</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+        header { text-align: center; margin-bottom: 40px; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; }
+        header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        header p { font-size: 1.2rem; opacity: 0.9; }
+        .section { background: white; margin-bottom: 20px; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section h2 { color: #667eea; font-size: 1.8rem; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0; }
+        .section h3 { color: #764ba2; font-size: 1.3rem; margin: 20px 0 10px; }
+        .section p { margin-bottom: 15px; }
+        .section ul, .section ol { margin-left: 20px; margin-bottom: 15px; }
+        .section li { margin-bottom: 8px; }
+        code { background: #f4f4f4; padding: 2px 8px; border-radius: 4px; font-family: 'Monaco', monospace; font-size: 0.9em; }
+        pre { background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        pre code { background: none; padding: 0; color: #d4d4d4; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #667eea; color: white; }
+        tr:hover { background: #f9f9f9; }
+        .highlight { background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 15px 0; }
+        .info { background: #d1ecf1; padding: 15px; border-radius: 8px; border-left: 4px solid #17a2b8; margin: 15px 0; }
+        .success { background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745; margin: 15px 0; }
+        .warning { background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 15px 0; }
+        .nav { position: sticky; top: 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .nav h3 { margin-bottom: 10px; }
+        .nav ul { list-style: none; margin: 0; }
+        .nav li { margin: 5px 0; }
+        .nav a { color: #667eea; text-decoration: none; }
+        .nav a:hover { text-decoration: underline; }
+        .emoji { font-size: 1.2em; margin-right: 5px; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0; }
+        .card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
+        .card h4 { color: #667eea; margin-bottom: 10px; }
+        footer { text-align: center; padding: 20px; color: #666; margin-top: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Galecto Platform</h1>
+            <p>User Manual - Complete Guide for End Users</p>
+        </header>
+
+        <div class="nav">
+            <h3>📑 Table of Contents</h3>
+            <ul>
+                <li><a href="#introduction">1. Introduction</a></li>
+                <li><a href="#getting-started">2. Getting Started</a></li>
+                <li><a href="#login">3. Login and Account</a></li>
+                <li><a href="#dashboard">4. Dashboard Overview</a></li>
+                <li><a href="#logs">5. Exploring Logs</a></li>
+                <li><a href="#metrics">6. Metrics and Monitoring</a></li>
+                <li><a href="#alerts">7. Alert Management</a></li>
+                <li><a href="#replay">8. Replay - Debug Failed Requests</a></li>
+                <li><a href="#dashboards">9. Dashboards</a></li>
+                <li><a href="#deployments">10. Deploy Markers</a></li>
+                <li><a href="#slo">11. SLO Monitoring</a></li>
+                <li><a href="#apikeys">12. API Keys Management</a></li>
+                <li><a href="#notifications">13. Notifications</a></li>
+                <li><a href="#troubleshooting">14. Troubleshooting</a></li>
+            </ul>
+        </div>
+
+        <div class="section" id="introduction">
+            <h2>1. Introduction</h2>
+            <h3>What is Galecto?</h3>
+            <p>Galecto is an enterprise observability platform that helps you monitor, debug, and optimize your applications.</p>
+            <div class="card-grid">
+                <div class="card">
+                    <h4>🔍 Monitor</h4>
+                    <p>Track performance, errors, and health of your services in real-time.</p>
+                </div>
+                <div class="card">
+                    <h4>🔧 Debug</h4>
+                    <p>Use replay functionality to quickly identify and fix issues.</p>
+                </div>
+                <div class="card">
+                    <h4>🚀 Track</h4>
+                    <p>Correlate deployments with errors to understand what went wrong.</p>
+                </div>
+                <div class="card">
+                    <h4>⏱️ Optimize</h4>
+                    <p>Set SLOs and continuously improve your service reliability.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="getting-started">
+            <h2>2. Getting Started</h2>
+            <h3>Access the Platform</h3>
+            <p>Open your web browser and go to:</p>
+            <pre><code>http://localhost:3000</code></pre>
+            <div class="info">
+                <strong>💡 System Requirements:</strong> Chrome, Firefox, Edge, or Safari web browser.
+            </div>
+        </div>
+
+        <div class="section" id="login">
+            <h2>3. Login and Account</h2>
+            <h3>Creating an Account</h3>
+            <ol>
+                <li>Click <strong>"Sign Up"</strong> on the login page</li>
+                <li>Enter your email address</li>
+                <li>Create a strong password</li>
+                <li>Enter your <strong>Organization Name</strong></li>
+                <li>Click <strong>"Create Account"</strong></li>
+            </ol>
+            <h3>Logging In</h3>
+            <ol>
+                <li>Enter your email</li>
+                <li>Enter your password</li>
+                <li>Click <strong>"Login"</strong></li>
+            </ol>
+        </div>
+
+        <div class="section" id="dashboard">
+            <h2>4. Dashboard Overview</h2>
+            <h3>What's on the Dashboard?</h3>
+            <table>
+                <tr><th>Section</th><th>Description</th></tr>
+                <tr><td>Quick Stats</td><td>Key metrics at a glance</td></tr>
+                <tr><td>Active Alerts</td><td>Alerts needing attention</td></tr>
+                <tr><td>Service Health</td><td>Status of monitored services</td></tr>
+                <tr><td>Recent Logs</td><td>Latest log entries</td></tr>
+                <tr><td>SLO Status</td><td>Service level objectives</td></tr>
+            </table>
+            <h3>Navigation</h3>
+            <p>Use the <strong>left sidebar</strong> to navigate between sections:</p>
+            <ul>
+                <li>🏠 <strong>Dashboard</strong> - Main overview</li>
+                <li>📝 <strong>Logs</strong> - Search and explore logs</li>
+                <li>📊 <strong>Metrics</strong> - Performance data</li>
+                <li>🚨 <strong>Alerts</strong> - Alert management</li>
+                <li>🔄 <strong>Replay</strong> - Debug failed requests</li>
+                <li>📈 <strong>Dashboards</strong> - Custom dashboards</li>
+                <li>🚀 <strong>Deployments</strong> - Track deployments</li>
+                <li>⏱️ <strong>SLOs</strong> - Service level objectives</li>
+                <li>⚙️ <strong>Settings</strong> - API keys, notifications</li>
+            </ul>
+        </div>
+
+        <div class="section" id="logs">
+            <h2>5. Exploring Logs</h2>
+            <h3>Finding Logs</h3>
+            <ol>
+                <li>Click <strong>"Logs"</strong> in the sidebar</li>
+                <li>Use the search bar to find specific messages</li>
+                <li>Apply filters to narrow results</li>
+            </ol>
+            <h3>Search Tips</h3>
+            <ul>
+                <li><strong>By keyword</strong>: Type "error", "exception", "timeout"</li>
+                <li><strong>By service</strong>: Filter to a specific service</li>
+                <li><strong>By time</strong>: Select time range</li>
+                <li><strong>By level</strong>: Filter by error, warning, info</li>
+            </ul>
+            <div class="success">
+                <strong>💡 Tip:</strong> Click on any log entry to see full details including stack trace and request information.
+            </div>
+        </div>
+
+        <div class="section" id="metrics">
+            <h2>6. Metrics and Monitoring</h2>
+            <h3>Viewing Metrics</h3>
+            <ol>
+                <li>Click <strong>"Metrics"</strong> in the sidebar</li>
+                <li>Select the service you want to monitor</li>
+                <li>Choose the metric type</li>
+            </ol>
+            <h3>Available Metrics</h3>
+            <table>
+                <tr><th>Metric</th><th>Description</th></tr>
+                <tr><td>Response Time</td><td>How long requests take</td></tr>
+                <tr><td>Error Rate</td><td>Percentage of failed requests</td></tr>
+                <tr><td>Throughput</td><td>Requests per second</td></tr>
+                <tr><td>Saturation</td><td>Resource usage levels</td></tr>
+            </table>
+        </div>
+
+        <div class="section" id="alerts">
+            <h2>7. Alert Management</h2>
+            <h3>Viewing Alerts</h3>
+            <p>Click <strong>"Alerts"</strong> in the sidebar to see all alerts with status (Active, Acknowledged, Resolved).</p>
+            <h3>Alert Severity Levels</h3>
+            <ul>
+                <li>🔴 <strong>Critical</strong> - Immediate attention needed</li>
+                <li>🟠 <strong>High</strong> - Important but not critical</li>
+                <li>🟡 <strong>Medium</strong> - Should be addressed</li>
+                <li>🟢 <strong>Low</strong> - Minor issues</li>
+            </ul>
+            <h3>Managing Alerts</h3>
+            <p><strong>Acknowledge:</strong> Click on the alert → Click "Acknowledge"</p>
+            <p><strong>Resolve:</strong> Click on the acknowledged alert → Click "Resolve" → Add notes</p>
+        </div>
+
+        <div class="section" id="replay">
+            <h2>8. Replay - Debug Failed Requests</h2>
+            <h3>What is Replay?</h3>
+            <p>Replay lets you "replay" a failed request to see exactly what happened. This helps debug issues safely.</p>
+            <h3>How to Use Replay</h3>
+            <ol>
+                <li>Click <strong>"Replay"</strong> in the sidebar</li>
+                <li>Search for the failed request (Trace ID, time range, service)</li>
+                <li>Click on a failed request to view details</li>
+                <li>Click <strong>"Replay"</strong> to execute a test</li>
+            </ol>
+            <div class="warning">
+                <strong>⚠️ Safety Features:</strong> Replay filters out sensitive headers, masks PII, and blocks dangerous URLs.
+            </div>
+        </div>
+
+        <div class="section" id="dashboards">
+            <h2>9. Dashboards</h2>
+            <h3>Creating a Dashboard</h3>
+            <ol>
+                <li>Click <strong>"Dashboards"</strong> in the sidebar</li>
+                <li>Click <strong>"+ New Dashboard"</strong></li>
+                <li>Give your dashboard a name</li>
+                <li>Click <strong>"Add Widget"</strong></li>
+            </ol>
+            <h3>Widget Types</h3>
+            <table>
+                <tr><th>Widget</th><th>Shows</th></tr>
+                <tr><td>Line Chart</td><td>Metrics over time</td></tr>
+                <tr><td>Bar Chart</td><td>Comparisons</td></tr>
+                <tr><td>Number</td><td>Single metric value</td></tr>
+                <tr><td>Table</td><td>Tabular data</td></tr>
+                <tr><td>Service Map</td><td>Service relationships</td></tr>
+            </table>
+        </div>
+
+        <div class="section" id="deployments">
+            <h2>10. Deploy Markers</h2>
+            <h3>Tracking Deployments</h3>
+            <p>Click <strong>"Deployments"</strong> in the sidebar to view all deployments with timestamps.</p>
+            <h3>Using Deploy Markers</h3>
+            <p>When investigating issues, look for deployment markers in Logs or Metrics to correlate errors with deployments.</p>
+        </div>
+
+        <div class="section" id="slo">
+            <h2>11. SLO Monitoring</h2>
+            <h3>What is SLO?</h3>
+            <p>SLO (Service Level Objective) defines targets for service reliability, like "99.9% of requests should succeed."</p>
+            <h3>Setting Up SLOs</h3>
+            <ol>
+                <li>Click <strong>"SLOs"</strong> in the sidebar</li>
+                <li>Click <strong>"+ New SLO"</strong></li>
+                <li>Configure: Name, Service, Type, Threshold, Window</li>
+            </ol>
+            <h3>SLO Status Indicators</h3>
+            <ul>
+                <li>✅ <strong>Green</strong> - Meeting target</li>
+                <li>⚠️ <strong>Yellow</strong> - At risk</li>
+                <li>❌ <strong>Red</strong> - Breached</li>
+            </ul>
+        </div>
+
+        <div class="section" id="apikeys">
+            <h2>12. API Keys Management</h2>
+            <h3>Creating an API Key</h3>
+            <ol>
+                <li>Go to <strong>Settings</strong> (gear icon)</li>
+                <li>Click <strong>"API Keys"</strong></li>
+                <li>Click <strong>"+ Add API Key"</strong></li>
+                <li>Enter a name (e.g., "Production App")</li>
+                <li>Select a role</li>
+                <li>Click <strong>"Create"</strong></li>
+                <li><strong>Copy the key</strong> - it won't be shown again!</li>
+            </ol>
+            <h3>Using Your API Key</h3>
+            <pre><code>curl -X POST http://localhost:3001/api/v1/ingest \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"service": "my-app", "name": "LOG", "payload": {"message": "Hello"}}</code></pre>
+            <h3>Rotating API Keys</h3>
+            <ol>
+                <li>Create a new key</li>
+                <li>Update your application to use the new key</li>
+                <li>Revoke the old key</li>
+            </ol>
+        </div>
+
+        <div class="section" id="notifications">
+            <h2>13. Notifications</h2>
+            <h3>Setting Up Notifications</h3>
+            <ol>
+                <li>Go to <strong>Settings</strong></li>
+                <li>Click <strong>"Notifications"</strong></li>
+                <li>Click <strong>"+ Add Channel"</strong></li>
+            </ol>
+            <h3>Notification Types</h3>
+            <ul>
+                <li><strong>Email</strong> - Enter email addresses</li>
+                <li><strong>Slack</strong> - Enter Slack webhook URL</li>
+                <li><strong>Webhook</strong> - Enter webhook URL</li>
+            </ul>
+        </div>
+
+        <div class="section" id="troubleshooting">
+            <h2>14. Troubleshooting</h2>
+            <h3>Common Issues</h3>
+            <div class="warning">
+                <strong>Can't Log In?</strong><br>
+                - Check your email/password<br>
+                - Clear browser cache<br>
+                - Try incognito/private mode
+            </div>
+            <div class="warning">
+                <strong>Not Seeing Data?</strong><br>
+                - Verify API key is correct<br>
+                - Check your application is sending data<br>
+                - Ensure services are running
+            </div>
+            <div class="warning">
+                <strong>Alerts Not Receiving?</strong><br>
+                - Check notification settings<br>
+                - Verify email/Slack configuration<br>
+                - Check spam folder
+            </div>
+            <h3>Need More Help?</h3>
+            <ul>
+                <li>Contact your organization's admin</li>
+                <li>Check the internal wiki</li>
+                <li>Submit a support ticket</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>📋 Quick Reference Card</h2>
+            <table>
+                <tr><th>Task</th><th>Where to Go</th></tr>
+                <tr><td>View logs</td><td>Logs</td></tr>
+                <tr><td>Check metrics</td><td>Metrics</td></tr>
+                <tr><td>See alerts</td><td>Alerts</td></tr>
+                <tr><td>Debug issues</td><td>Replay</td></tr>
+                <tr><td>Create dashboard</td><td>Dashboards</td></tr>
+                <tr><td>Track deployments</td><td>Deployments</td></tr>
+                <tr><td>Set SLOs</td><td>SLOs</td></tr>
+                <tr><td>Manage API keys</td><td>Settings → API Keys</td></tr>
+                <tr><td>Configure alerts</td><td>Settings → Notifications</td></tr>
+                <tr><td>Manage users</td><td>Settings → Users</td></tr>
+            </table>
+        </div>
+
+        <footer>
+            <p><strong>Galecto Platform - User Manual</strong></p>
+            <p>For technical support, contact your administrator.</p>
+            <p>© 2026 Galecto Team</p>
+        </footer>
+    </div>
+</body>
+</html>

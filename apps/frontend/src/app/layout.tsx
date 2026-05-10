@@ -9,6 +9,9 @@ const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
 export const metadata: Metadata = {
   title: "Galecto | Distributed Tracing SaaS",
   description: "Enterprise Distributed Tracing & Observability",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

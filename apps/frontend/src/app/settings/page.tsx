@@ -10,6 +10,8 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [newProjectName, setNewProjectName] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [retentionDays, setRetentionDays] = useState(30);
+  const [retentionLoading, setRetentionLoading] = useState(false);
 
   const fetchProjects = async () => {
     setLoading(true);
@@ -23,8 +25,20 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchRetentionSettings = async () => {
+    try {
+      const data = await apiFetch('/organization/settings');
+      if (data.success && data.data?.retentionDays) {
+        setRetentionDays(data.data.retentionDays);
+      }
+    } catch (err) {
+      console.error('Failed to fetch retention settings', err);
+    }
+  };
+
   useEffect(() => {
     fetchProjects();
+    fetchRetentionSettings();
   }, []);
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -39,6 +53,20 @@ export default function SettingsPage() {
       fetchProjects();
     } catch (err) {
       console.error('Failed to create project', err);
+    }
+  };
+
+  const handleRetentionUpdate = async () => {
+    setRetentionLoading(true);
+    try {
+      await apiFetch('/organization/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ retentionDays })
+      });
+    } catch (err) {
+      console.error('Failed to update retention', err);
+    } finally {
+      setRetentionLoading(false);
     }
   };
 
@@ -144,30 +172,40 @@ export default function SettingsPage() {
               </div>
            </div>
 
-           {/* Section 3: Data Retention */}
-           <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-              <div className="flex items-center gap-4 mb-2">
-                 <Database className="text-orange-500" size={24} />
-                 <h3 className="text-xl font-black font-sora">Data Retention Policy</h3>
-              </div>
-              <p className="text-sm text-slate-500 mb-8 font-medium">Control how long your traces and logs are stored in our OLAP clusters.</p>
-              
-              <div className="flex items-center gap-8 p-8 bg-slate-50 rounded-3xl border border-slate-100">
-                 <div className="flex-grow">
-                    <div className="text-sm font-black font-sora text-slate-900 mb-1">Retention Period</div>
-                    <div className="text-xs text-slate-400 font-medium">Traces older than this period will be automatically purged from ClickHouse.</div>
-                 </div>
-                 <div className="flex items-center gap-4">
-                    <select className="px-6 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-sm focus:outline-none focus:border-emerald-500">
-                       <option value="7">7 Days</option>
-                       <option value="14">14 Days</option>
-                       <option value="30">30 Days</option>
-                       <option value="90">90 Days</option>
-                    </select>
-                    <button className="btn-primary !py-3 !px-8">Update</button>
-                 </div>
-              </div>
-           </div>
+{/* Section 3: Data Retention */}
+            <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+               <div className="flex items-center gap-4 mb-2">
+                  <Database className="text-orange-500" size={24} />
+                  <h3 className="text-xl font-black font-sora">Data Retention Policy</h3>
+               </div>
+               <p className="text-sm text-slate-500 mb-8 font-medium">Control how long your traces and logs are stored in our OLAP clusters.</p>
+               
+               <div className="flex items-center gap-8 p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                  <div className="flex-grow">
+                     <div className="text-sm font-black font-sora text-slate-900 mb-1">Retention Period</div>
+                     <div className="text-xs text-slate-400 font-medium">Traces older than this period will be automatically purged from ClickHouse.</div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                     <select 
+                       className="px-6 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-sm focus:outline-none focus:border-emerald-500"
+                       value={retentionDays}
+                       onChange={(e) => setRetentionDays(Number(e.target.value))}
+                     >
+                        <option value="7">7 Days</option>
+                        <option value="14">14 Days</option>
+                        <option value="30">30 Days</option>
+                        <option value="90">90 Days</option>
+                     </select>
+                     <button 
+                       onClick={handleRetentionUpdate}
+                       disabled={retentionLoading}
+                       className="btn-primary !py-3 !px-8"
+                     >
+                       {retentionLoading ? 'Saving...' : 'Update'}
+                     </button>
+                  </div>
+               </div>
+            </div>
         </div>
       </div>
     </DashboardLayout>

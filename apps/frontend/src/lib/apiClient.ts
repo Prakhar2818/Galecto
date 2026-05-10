@@ -13,9 +13,8 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   });
 
   if (response.status === 401) {
-    // Optional: handle unauthorized redirect
-    // localStorage.removeItem('ag_token');
-    // window.location.href = '/login';
+    localStorage.removeItem('ag_token');
+    window.location.href = '/login';
   }
 
   return response.json();

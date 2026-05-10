@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { logger } from "../../../../packages/logger/src/logger";
 import { sendEvent } from "../../../../packages/kafka/src/producer";
-import { EventType, IEvent } from "../../../../packages/types/src/index";
+import { EventType, IEvent } from "../../../../packages/api-types/src/index";
 import { v4 as uuidv4 } from "uuid";
 
 export async function loggingMiddleware(
@@ -9,6 +9,7 @@ export async function loggingMiddleware(
   reply: FastifyReply
 ) {
   const context = (request as any).context;
+  const tenantId = (request as any).organizationId || "anonymous";
 
   logger.info({
     traceId: context?.traceId,
@@ -21,6 +22,7 @@ export async function loggingMiddleware(
     eventId: uuidv4(),
     traceId: context?.traceId || uuidv4(),
     spanId: context?.spanId || uuidv4(),
+    tenantId,
     type: EventType.TRACE,
     service: "api-gateway",
     name: `API_REQUEST ${request.method} ${request.url}`,
@@ -41,6 +43,7 @@ export async function responseLoggingMiddleware(
   reply: FastifyReply
 ) {
   const context = (request as any).context;
+  const tenantId = (request as any).organizationId || "anonymous";
   const durationMs = context?.startTime ? Date.now() - context.startTime : undefined;
 
   logger.info({
@@ -56,6 +59,7 @@ export async function responseLoggingMiddleware(
     eventId: uuidv4(),
     traceId: context?.traceId || uuidv4(),
     spanId: context?.spanId || uuidv4(),
+    tenantId,
     type: EventType.TRACE,
     service: "api-gateway",
     name: `API_RESPONSE ${request.method} ${request.url}`,

@@ -1,74 +1,120 @@
-# Galecto: Enterprise Observability & Replay Platform
-**Current Implementation Status (Post-Emerald Upgrade)**
+# Galecto Implementation Status
 
-This document outlines the state of the Galecto platform following the "Emerald Soft" transformation. The platform has evolved from a simple distributed tracer into a high-fidelity SaaS observability engine with causality replay.
+## Last Updated: May 10, 2026
 
-## 1. Core Architecture (The Engine)
-Galecto utilizes a **Distributed Event Streaming Architecture** built for sub-second ingestion and recursive causality reconstruction.
+## Implementation Phases
 
-### The Tech Stack
-*   **Edge Gateway:** Node.js + Fastify (Port 3001)
-*   **Microservices:** Auth (5001), Log (5002), Query (4002), Alert (5003)
-*   **Data Backbone:** Apache Kafka (Streaming), ClickHouse (OLAP), PostgreSQL (Metadata)
-*   **Frontend:** Next.js 14 (Sora + Inter Typography), React Flow, ECharts
+### Phase 1: Core Platform Stabilization ✅ COMPLETE
 
----
+- [x] Route prefix fixes for query-service
+- [x] JWT authentication for user-facing routes
+- [x] API key verification flow for machine/telemetry
+- [x] Parent span ID storage in ClickHouse
+- [x] Alert persistence in Postgres
+- [x] Replay execution persistence
+- [x] Project management with environment support
+- [x] Retention settings per organization
+- [x] Multi-tenant data filtering
 
-## 2. Completed Implementation Phases
+### Phase 2: Data Durability ✅ COMPLETE
 
-### ✅ Phase 1: SaaS Foundation & "Emerald" UI
-*   **Emerald Soft Design System:** Implemented a premium, high-contrast design language.
-*   **Typography:** SOC-2 compliant Sora headlines and Inter body text.
-*   **Global Auth Context:** Implemented `AuthProvider` to manage JWT sessions and multi-tenant isolation.
-*   **Unified API Client:** Created `apiFetch`, `queryFetch`, and `alertFetch` with automatic JWT injection.
+- [x] Alerts persisted with full incident management
+- [x] Replay history with audit trails
+- [x] Dynamic retention by tenant
+- [x] Live metrics from ClickHouse
+- [x] Multi-tenant queries for all endpoints
 
-### ✅ Phase 2: Distributed Tracing & Causality Graph
-*   **Hierarchical Stitching:** The `query-service` reconstructs recursive request trees from flat ClickHouse spans.
-*   **React Flow Visualization:** Interactive, animated causality graphs in the `/traces` workspace.
+### Phase 3: Enterprise Controls ✅ COMPLETE
 
-### ✅ Phase 3: Log Explorer & Deep Search
-*   **OLAP Search:** Connected `/logs` to the ClickHouse `events` table via the Query Service.
-*   **Filtering:** Real-time search by service, severity, and raw payload contents.
+- [x] RBAC roles (OWNER, ADMIN, DEVELOPER, OBSERVER)
+- [x] API key lifecycle (create, rotate, revoke)
+- [x] API key audit logs
+- [x] Notification channels (Email, Slack, Webhook, PagerDuty)
+- [x] Saved searches
+- [x] Custom dashboards
+- [x] Deploy markers for release correlation
+- [x] SLO definitions and status tracking
+- [x] Incident management (severity, assignment, notes, SLA)
+- [x] Service dependency mapping
+- [x] Anomaly trend analysis
 
-### ✅ Phase 4: The Replay Engine (The "Time Machine")
-*   **Metadata Capture:** API Gateway updated to capture **full headers and body** for every request in ClickHouse.
-*   **Shadow Proxy Logic:** Built `ReplayController` in the Gateway with `x-galecto-replay` isolation headers.
-*   **Replay Workspace:** Side-by-side comparison UI in `/replay`.
+### Phase 4: Advanced Features ✅ COMPLETE
 
-### ✅ Phase 5: Alerting Engine
-*   **Kafka Consumer:** `alert-service` scans events for status code anomalies and latency spikes.
-*   **Incident Center:** Real-time alerts dashboard with resolution capabilities.
+- [x] OTLP/OpenTelemetry support (traces, metrics, logs endpoints)
+- [x] Replay safeguards (PII masking, header filtering, URL allowlists)
+- [x] Integration tests
+- [x] CI/CD pipeline configuration
 
-### ✅ Phase 6: Live Monitoring
-*   **Quantum Stream:** Real-time P99 latency and error rate analytics via ClickHouse aggregates.
+## Architecture
 
-### ✅ Phase 7: Workspace & Project Management
-*   **Multi-Project:** Added support for creating multiple projects within an organization.
-*   **Project-Specific Keys:** Implemented dynamic API key generation per project.
+### Services
+- **auth-service** (port 4000): Authentication, RBAC, organization management
+- **api-gateway** (port 3001): Ingress, replay, OTLP endpoints
+- **query-service** (port 4002): Traces, logs, metrics, service maps
+- **log-service** (port 4001): Kafka to ClickHouse persistence
+- **alert-service** (port 5003): Alert detection and incident management
+- **frontend** (port 3000): Web UI
 
-### ✅ Phase 8: Data Retention Policies
-*   **Retention Worker:** Background cron job in `log-service` to automatically prune ClickHouse data.
+### Data Stores
+- **PostgreSQL**: Users, organizations, projects, API keys, alerts, incidents, dashboards, SLOs
+- **ClickHouse**: Telemetry events, traces, logs, metrics
+- **Redis**: API key caching
+- **Kafka**: Event streaming between services
 
-### ✅ Phase 9: Developer Hub
-*   **Developer Portal:** Centralized hub for documentation and copy-pasteable SDK snippets.
+## API Endpoints Summary
 
----
+### Authentication
+- POST /auth/register
+- POST /auth/login
+- POST /auth/verify-api-key
 
-## 3. Deployment & Development
-The environment is managed via a modular workspace structure:
+### Projects
+- GET/POST /projects
+- POST /projects/:id/keys
+- POST /projects/keys/:id/rotate
+- POST /projects/keys/:id/revoke
+- GET /projects/keys/audit-logs
 
-| Service | Port | Responsibility |
-| :--- | :--- | :--- |
-| `api-gateway` | 3001 | Ingestion, Auth Edge, Replay Controller |
-| `query-service` | 4002 | Trace Stitching, Log Search, P99 Metrics |
-| `auth-service` | 5001 | User/Org Metadata, Projects, API Keys |
-| `log-service` | 5002 | Kafka Consumption, ClickHouse Pruning |
-| `alert-service` | 5003 | Real-time Anomaly Detection |
-| `frontend` | 3000 | SaaS Dashboard, Visualizations |
+### Organization
+- GET/PUT /organization/settings
 
----
+### Notifications
+- GET/POST/PUT/DELETE /notifications
 
-## 4. Final System Status
-**Status:** ALL PHASES COMPLETE ✅
-**Name:** Galecto
-**Branding:** Emerald Soft Design Language
+### Dashboards
+- GET/POST /dashboards
+- GET/POST/DELETE /dashboards/searches
+
+### Platform
+- GET/POST /platform/incidents
+- POST /platform/incidents/:id/acknowledge
+- POST /platform/incidents/:id/resolve
+- GET/POST /platform/deploys
+- GET/POST/DELETE /platform/slos
+
+### Query (ports 4002)
+- GET /api/v1/traces, /traces/:id, /traces/anomalies, /traces/metrics
+- GET /api/v1/logs
+- GET /api/v1/service-map
+- GET /api/v1/anomaly-trends
+- GET /api/v1/slo-status
+
+### Gateway (port 3001)
+- POST /api/v1/ingest
+- POST /api/v1/replay/:traceId
+- GET /api/v1/replays
+- POST /v1/traces (OTLP)
+- POST /v1/metrics (OTLP)
+- POST /v1/logs (OTLP)
+
+## Next Steps
+
+1. Run `npm run db:generate` and `npm run db:push` to update database schema
+2. Start all services and run `npm run test:integration`
+3. Configure production deployment
+
+## Known Limitations
+
+- OpenTelemetry SDK package not yet published to npm
+- Service map requires sufficient trace data for accurate dependency detection
+- SLO burn-rate calculations require at least 7 days of data

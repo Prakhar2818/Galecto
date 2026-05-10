@@ -1,63 +1,90 @@
 import "dotenv/config";
-import Fastify from "fastify";
+import Fastify, { FastifyRequest, FastifyReply } from "fastify";
 import cors from "@fastify/cors";
+import jwt from "@fastify/jwt";
+import { PrismaClient } from "@prisma/client";
 import { createConsumer } from "../../../packages/kafka/src/consumer";
-import { IEvent } from "../../../packages/types/src/index";
+import { IEvent } from "../../../packages/api-types/src/index";
 
 const app = Fastify({ logger: true });
+const prisma = new PrismaClient();
 
-// In-memory alert store (for demo purposes)
-const alerts: any[] = [];
+async function jwtAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    reply.status(401).send({ error: "Unauthorized", message: "Invalid or missing token" });
+  }
+}
 
 async function start() {
   try {
     await app.register(cors, { origin: "*" });
+    await app.register(jwt, {
+      secret: process.env.JWT_SECRET || "secret",
+    });
 
-    // 1. Consume Kafka Events and Trigger Alerts
     await createConsumer("alert-service-group", "events", async (event: IEvent) => {
       let triggerAlert = false;
       let reason = "";
 
-      // Rule A: Error detection
       if (event.name.includes("RESPONSE") && event.payload.statusCode >= 400) {
         triggerAlert = true;
         reason = `High Error Rate: ${event.service} returned status ${event.payload.statusCode}`;
       }
 
-      // Rule B: Latency detection
       if (event.payload.durationMs > 500) {
         triggerAlert = true;
         reason = `Latency Spike: ${event.service} request took ${event.payload.durationMs}ms`;
       }
 
-      if (triggerAlert) {
-        const alert = {
-          id: Math.random().toString(36).substr(2, 9),
-          traceId: event.traceId,
-          service: event.service,
-          type: event.payload.statusCode >= 400 ? 'ERROR' : 'LATENCY',
-          message: reason,
-          timestamp: Date.now(),
-          status: 'ACTIVE'
-        };
-        
-        alerts.unshift(alert);
-        app.log.warn({ alert }, "ALERT TRIGGERED");
-        
-        // Trim store
-        if (alerts.length > 100) alerts.pop();
+      if (triggerAlert && event.tenantId) {
+        try {
+          const alert = await prisma.alert.create({
+            data: {
+              traceId: event.traceId,
+              service: event.service,
+              type: event.payload.statusCode >= 400 ? 'ERROR' : 'LATENCY',
+              message: reason,
+              status: 'ACTIVE',
+              organizationId: event.tenantId,
+            }
+          });
+          app.log.warn({ alertId: alert.id }, "ALERT TRIGGERED AND PERSISTED");
+        } catch (err) {
+          app.log.error({ err, tenantId: event.tenantId }, "Failed to persist alert");
+        }
       }
     });
 
-    // 2. Expose API for Frontend
-    app.get("/api/v1/alerts", async () => {
+    app.addHook("onRequest", jwtAuthMiddleware);
+
+    app.get("/api/v1/alerts", async (request) => {
+      const user = request.user as any;
+      const orgId = user?.organizationId;
+      
+      const alerts = await prisma.alert.findMany({
+        where: { organizationId: orgId },
+        orderBy: { createdAt: 'desc' },
+        take: 100
+      });
+      
       return { success: true, data: alerts };
     });
 
     app.post("/api/v1/alerts/:id/resolve", async (request, reply) => {
       const { id } = request.params as { id: string };
-      const alert = alerts.find(a => a.id === id);
-      if (alert) alert.status = 'RESOLVED';
+      const user = request.user as any;
+      const orgId = user?.organizationId;
+      
+      await prisma.alert.updateMany({
+        where: { id, organizationId: orgId },
+        data: { 
+          status: 'RESOLVED',
+          resolvedAt: new Date()
+        }
+      });
+      
       return { success: true };
     });
 
