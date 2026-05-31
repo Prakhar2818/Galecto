@@ -9,16 +9,23 @@ export class OrganizationController {
     const organizationId = (req as any).user.organizationId;
     const org = await prisma.organization.findUnique({
       where: { id: organizationId },
-      select: { id: true, name: true, retentionDays: true }
+      include: {
+        users: {
+          select: { id: true, email: true, role: true, createdAt: true }
+        }
+      }
     });
     return reply.send({ success: true, data: org });
   }
 
   async updateSettings(req: FastifyRequest, reply: FastifyReply) {
     const organizationId = (req as any).user.organizationId;
-    const { retentionDays } = req.body as { retentionDays?: number };
+    const { name, retentionDays } = req.body as { name?: string; retentionDays?: number };
 
     const updateData: any = {};
+    if (name !== undefined) {
+      updateData.name = name;
+    }
     if (retentionDays !== undefined) {
       updateData.retentionDays = retentionDays;
     }
@@ -28,6 +35,6 @@ export class OrganizationController {
       data: updateData,
     });
 
-    return reply.send({ success: true, data: { retentionDays: org.retentionDays } });
+    return reply.send({ success: true, data: { name: org.name, retentionDays: org.retentionDays } });
   }
 }

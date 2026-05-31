@@ -11,6 +11,19 @@ export default function LogsPage() {
   const [search, setSearch] = useState('');
   const [service, setService] = useState('');
 
+  const handleExport = () => {
+    const jsonString = JSON.stringify(logs, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `galecto-logs-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const fetchLogs = async () => {
     setLoading(true);
     try {
@@ -44,7 +57,11 @@ export default function LogsPage() {
           <p className="text-slate-500 font-medium">Deep-search across millions of structured events.</p>
         </div>
         <div className="flex gap-3">
-          <button className="btn-secondary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2">
+          <button 
+            onClick={handleExport}
+            disabled={logs.length === 0}
+            className="btn-secondary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Export JSON <Download className="w-4 h-4" />
           </button>
         </div>

@@ -17,13 +17,22 @@ async function seed() {
     });
     console.log(`✅ Created Organization: ${org.name} (ID: ${org.id})`);
 
-    // 2. Create an API Key for the Organization
+    // 2. Create a Project
+    const project = await prisma.project.create({
+      data: {
+        name: "Default Project",
+        organizationId: org.id,
+      }
+    });
+    console.log(`✅ Created Project: ${project.name}`);
+
+    // 3. Create an API Key for the Project
     const apiKeyString = `test-api-key-${uuidv4()}`;
     const apiKey = await prisma.apiKey.create({
       data: {
         key: apiKeyString,
         name: "Default Test Key",
-        organizationId: org.id,
+        projectId: project.id,
       },
     });
     console.log(`✅ Created API Key in Postgres: ${apiKey.key}`);

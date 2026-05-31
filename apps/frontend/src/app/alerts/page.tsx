@@ -4,13 +4,16 @@ import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
   Bell, AlertTriangle, CheckCircle2, Clock, 
-  ChevronRight, Filter, Settings, RefreshCw, Loader2 
+  ChevronRight, Filter, Settings, RefreshCw, Loader2, X
 } from 'lucide-react';
 import { alertFetch } from '@/lib/apiClient';
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showNewRule, setShowNewRule] = useState(false);
+  const [newRule, setNewRule] = useState({ name: '', condition: 'error_rate', threshold: '10', service: '' });
 
   const fetchAlerts = async () => {
     setLoading(true);
@@ -50,7 +53,10 @@ export default function AlertsPage() {
           <button onClick={fetchAlerts} className="btn-secondary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2">
             Refresh <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button className="btn-primary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2">
+          <button 
+            onClick={() => setShowSettings(true)}
+            className="btn-primary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2"
+          >
             Alert Settings <Settings className="w-4 h-4" />
           </button>
         </div>
@@ -112,12 +118,122 @@ export default function AlertsPage() {
               <RuleItem title="P99 Latency Breach" desc="Triggered if request duration exceeds 500ms." />
               <RuleItem title="OOM Prevention" desc="Triggered if pod memory usage > 85%." />
             </div>
-            <button className="w-full mt-10 py-4 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-400 transition-colors">
-              Create New Rule
-            </button>
+            <button 
+            onClick={() => setShowNewRule(true)}
+            className="w-full mt-10 py-4 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-400 transition-colors"
+          >
+            Create New Rule
+          </button>
           </div>
         </div>
       </div>
+
+      {/* Alert Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-slate-900">Alert Settings</h2>
+              <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-100 rounded-xl">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <div>
+                  <div className="font-bold text-slate-900">Email Notifications</div>
+                  <div className="text-sm text-slate-500">Receive alerts via email</div>
+                </div>
+                <input type="checkbox" defaultChecked className="w-5 h-5 accent-emerald-500" />
+              </div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <div>
+                  <div className="font-bold text-slate-900">Slack Notifications</div>
+                  <div className="text-sm text-slate-500">Send alerts to Slack channel</div>
+                </div>
+                <input type="checkbox" className="w-5 h-5 accent-emerald-500" />
+              </div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <div>
+                  <div className="font-bold text-slate-900">Auto-Acknowledge</div>
+                  <div className="text-sm text-slate-500">Auto-resolve after 24h</div>
+                </div>
+                <input type="checkbox" defaultChecked className="w-5 h-5 accent-emerald-500" />
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowSettings(false)}
+              className="w-full mt-6 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600"
+            >
+              Save Settings
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Rule Modal */}
+      {showNewRule && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-slate-900">Create New Alert Rule</h2>
+              <button onClick={() => setShowNewRule(false)} className="p-2 hover:bg-slate-100 rounded-xl">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Rule Name</label>
+                <input 
+                  type="text" 
+                  value={newRule.name}
+                  onChange={(e) => setNewRule({...newRule, name: e.target.value})}
+                  placeholder="e.g., High Error Rate"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Service</label>
+                <input 
+                  type="text" 
+                  value={newRule.service}
+                  onChange={(e) => setNewRule({...newRule, service: e.target.value})}
+                  placeholder="e.g., auth-service"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Condition</label>
+                <select 
+                  value={newRule.condition}
+                  onChange={(e) => setNewRule({...newRule, condition: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="error_rate">Error Rate (%)</option>
+                  <option value="latency">Latency (ms)</option>
+                  <option value="cpu_usage">CPU Usage (%)</option>
+                  <option value="memory_usage">Memory Usage (%)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Threshold</label>
+                <input 
+                  type="number" 
+                  value={newRule.threshold}
+                  onChange={(e) => setNewRule({...newRule, threshold: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+            <button 
+              onClick={() => { alert('Alert rule created successfully!'); setShowNewRule(false); }}
+              className="w-full mt-6 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600"
+            >
+              Create Rule
+            </button>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

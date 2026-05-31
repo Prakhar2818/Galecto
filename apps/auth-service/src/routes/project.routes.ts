@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { ProjectController } from "../controllers/project.controller";
+import { ProjectControllerV2 } from "../controllers/project.controller.v2";
 import { Role, requireRole } from "../middlewares/rbac.middleware";
 
 async function jwtAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
@@ -11,7 +11,7 @@ async function jwtAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
 }
 
 export async function projectRoutes(app: FastifyInstance) {
-  const controller = new ProjectController();
+  const controller = new ProjectControllerV2();
 
   app.addHook("onRequest", jwtAuthMiddleware);
 

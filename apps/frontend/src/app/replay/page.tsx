@@ -16,6 +16,12 @@ export default function ReplayPage() {
   const [replayTree, setReplayTree] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<any[]>([
+    { id: '1', traceId: 'abc-123', status: 'SUCCESS', timestamp: new Date(Date.now() - 3600000).toISOString(), duration: 234 },
+    { id: '2', traceId: 'def-456', status: 'FAILED', timestamp: new Date(Date.now() - 7200000).toISOString(), duration: 156 },
+    { id: '3', traceId: 'ghi-789', status: 'SUCCESS', timestamp: new Date(Date.now() - 10800000).toISOString(), duration: 312 },
+  ]);
 
   useEffect(() => {
     fetchAnomalies();
@@ -74,7 +80,10 @@ export default function ReplayPage() {
           <p className="text-slate-500 font-medium">Re-fire anomalous requests in isolated environments to verify fixes.</p>
         </div>
         <div className="flex gap-3">
-          <button className="btn-secondary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2">
+          <button 
+            onClick={() => setShowHistory(true)}
+            className="btn-secondary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2"
+          >
             View Replay History <History className="w-4 h-4" />
           </button>
         </div>
@@ -197,6 +206,46 @@ export default function ReplayPage() {
           )}
         </div>
       </div>
+
+      {/* Replay History Modal */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-slate-900">Replay History</h2>
+              <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-slate-100 rounded-xl">
+                <ChevronRight className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="text-left py-3 text-xs font-bold text-slate-400 uppercase">Trace ID</th>
+                    <th className="text-left py-3 text-xs font-bold text-slate-400 uppercase">Status</th>
+                    <th className="text-left py-3 text-xs font-bold text-slate-400 uppercase">Duration</th>
+                    <th className="text-left py-3 text-xs font-bold text-slate-400 uppercase">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((item) => (
+                    <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="py-4 font-mono text-sm text-slate-600">{item.traceId}</td>
+                      <td className="py-4">
+                        <span className={`px-2 py-1 rounded-lg text-xs font-bold ${item.status === 'SUCCESS' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="py-4 text-sm text-slate-600">{item.duration}ms</td>
+                      <td className="py-4 text-sm text-slate-400">{new Date(item.timestamp).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

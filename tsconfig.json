@@ -8,5 +8,6 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
-  }
+  },
+  "exclude": ["apps/frontend/**/*", "node_modules"]
 }

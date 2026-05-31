@@ -4,6 +4,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev src/server.ts",
+    "build": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push"
   },

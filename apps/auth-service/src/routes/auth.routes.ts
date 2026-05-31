@@ -26,6 +26,10 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: "Invalid or expired API key" });
     }
 
+    if (!key.project) {
+      return reply.status(401).send({ error: "API key not associated with project" });
+    }
+
     return {
       organizationId: key.project.organizationId,
       projectId: key.projectId,

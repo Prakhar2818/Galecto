@@ -12,7 +12,13 @@ export function buildApp() {
     logger: true,
   });
 
-  app.register(cors, { origin: "*" });
+  app.register(cors, { 
+    origin: true,
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Content-Type"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+  });
 
   app.register(jwt, {
     secret: process.env.JWT_SECRET || "secret",

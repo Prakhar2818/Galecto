@@ -22,12 +22,14 @@ export class AuthClient {
   }
 
   async listProjects(headers: any) {
-    return httpRequest(
+    const res = await httpRequest(
       `${AUTH_SERVICE_URL}/projects`,
       "GET",
       undefined,
       headers
     );
+    console.log("[GATEWAY DEBUG] listProjects response:", JSON.stringify(res, null, 2));
+    return res;
   }
 
   async createProject(data: any, headers: any) {
@@ -62,6 +64,42 @@ export class AuthClient {
       `${AUTH_SERVICE_URL}/organization/settings`,
       "PUT",
       data,
+      headers
+    );
+  }
+
+  async getUsers(headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/users`,
+      "GET",
+      undefined,
+      headers
+    );
+  }
+
+  async inviteUser(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/users/invite`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async updateUserRole(userId: string, data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/users/${userId}/role`,
+      "PUT",
+      data,
+      headers
+    );
+  }
+
+  async removeUser(userId: string, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/users/${userId}`,
+      "DELETE",
+      undefined,
       headers
     );
   }

@@ -1,7 +1,9 @@
+// UPDATED: Refreshed AuthService to recognize updated ProjectRepository
 import { injectable, inject } from "tsyringe";
 import { UserRepository } from "../repositories/user.repository";
 import { OrganizationRepository } from "../repositories/organization.repository";
 import { ProjectRepository } from "../repositories/project.repository";
+import { Role } from "@prisma/client";
 import { hashPassword, comparePassword } from "../utils/hash";
 
 @injectable()
@@ -33,11 +35,12 @@ export class AuthService {
     // 4. Hash the password
     const hashed = await hashPassword(password);
 
-    // 5. Create the User linked to the Org
+    // 5. Create the User linked to the Org as OWNER
     const user = await this.userRepo.create({
       email,
       password: hashed,
       organizationId: org.id,
+      role: Role.OWNER,
     });
 
     return { user, org, project, apiKey };

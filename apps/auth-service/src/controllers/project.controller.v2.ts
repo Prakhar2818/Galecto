@@ -2,9 +2,11 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { PrismaClient, ProjectEnvironment } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 
+console.log(">>> PROJECT CONTROLLER V2 LOADED <<<");
+
 const prisma = new PrismaClient();
 
-export class ProjectController {
+export class ProjectControllerV2 {
   
   async listProjects(req: FastifyRequest, reply: FastifyReply) {
     const organizationId = (req as any).user.organizationId;

@@ -1,16 +1,36 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Terminal, Code2, Book, Copy, Check, Zap, Server, ShieldCheck, Box } from 'lucide-react';
 
 export default function DeveloperDocsPage() {
+  const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   const copyCode = (id: string, code: string) => {
     navigator.clipboard.writeText(code);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const handleSdkClick = (sdkName: string, disabled: boolean) => {
+    if (disabled) {
+      setToastMessage(`${sdkName} SDK is coming soon!`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } else {
+      setToastMessage(`${sdkName} SDK - Installation guide below`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  };
+
+  const handleRotateKeys = () => {
+    router.push('/settings?tab=api-keys');
   };
 
   const nodeCode = `// Install: npm install @galecto/sdk
@@ -105,11 +125,11 @@ galecto.log({
         <div className="col-span-4 space-y-8">
            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
               <h4 className="text-sm font-black font-sora uppercase tracking-widest text-slate-400 mb-6">Integration SDKs</h4>
-              <div className="space-y-4">
-                 <SdkItem icon={<Code2 className="text-blue-500" />} name="Node.js SDK" version="v1.2.0" />
-                 <SdkItem icon={<Server className="text-orange-500" />} name="Go Package" version="Coming Soon" disabled />
-                 <SdkItem icon={<Box className="text-blue-400" />} name="Python Wrapper" version="Coming Soon" disabled />
-              </div>
+<div className="space-y-4">
+                  <SdkItem icon={<Code2 className="text-blue-500" />} name="Node.js SDK" version="v1.2.0" onClick={() => handleSdkClick('Node.js', false)} />
+                  <SdkItem icon={<Server className="text-orange-500" />} name="Go Package" version="Coming Soon" disabled onClick={() => handleSdkClick('Go', true)} />
+                  <SdkItem icon={<Box className="text-blue-400" />} name="Python Wrapper" version="Coming Soon" disabled onClick={() => handleSdkClick('Python', true)} />
+               </div>
            </div>
 
            <div className="bg-emerald-500 p-8 rounded-[2.5rem] text-white">
@@ -118,19 +138,35 @@ galecto.log({
               <p className="text-sm text-emerald-50/80 leading-relaxed font-medium">
                 Always use Bearer token authentication in your headers. Keep your API keys secret and never expose them in client-side code.
               </p>
-              <button className="mt-6 text-sm font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 py-3 w-full rounded-xl transition-all">
-                Rotate Keys
-              </button>
+<button 
+               onClick={handleRotateKeys}
+               className="mt-6 text-sm font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 py-3 w-full rounded-xl transition-all"
+            >
+                 Rotate Keys
+               </button>
            </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed bottom-8 right-8 bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-xl z-50 animate-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-3">
+            <Zap className="w-5 h-5 text-emerald-400" />
+            <span className="font-bold">{toastMessage}</span>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
 
-function SdkItem({ icon, name, version, disabled }: any) {
+function SdkItem({ icon, name, version, disabled, onClick }: any) {
   return (
-    <div className={`flex items-center justify-between p-4 rounded-2xl border border-slate-50 ${disabled ? 'opacity-40 grayscale' : 'hover:bg-slate-50 transition-colors cursor-pointer'}`}>
+    <div 
+      onClick={onClick}
+      className={`flex items-center justify-between p-4 rounded-2xl border border-slate-50 ${disabled ? 'opacity-40 grayscale' : 'hover:bg-slate-50 transition-colors cursor-pointer'}`}
+    >
        <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
              {icon}

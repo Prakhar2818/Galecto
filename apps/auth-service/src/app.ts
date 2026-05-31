@@ -7,6 +7,7 @@ import { organizationRoutes } from "./routes/organization.routes";
 import { notificationRoutes } from "./routes/notification.routes";
 import { dashboardRoutes } from "./routes/dashboard.routes";
 import { incidentRoutes } from "./routes/incident.routes";
+import { userRoutes } from "./routes/user.routes";
 import { errorHandler } from "./middlewares/error.middleware";
 import { requestContextMiddleware } from "./middlewares/request-context.middleware";
 import { loggingMiddleware, responseLoggingMiddleware } from "./middlewares/logger.middleware";
@@ -14,7 +15,10 @@ import { loggingMiddleware, responseLoggingMiddleware } from "./middlewares/logg
 export function buildApp() {
   const app = Fastify();
 
-  app.register(cors, { origin: "*" });
+  app.register(cors, { 
+    origin: true,
+    credentials: true
+});
 
   app.addHook("onRequest", requestContextMiddleware);
   app.addHook("onRequest", loggingMiddleware);
@@ -32,6 +36,7 @@ export function buildApp() {
   app.register(notificationRoutes, { prefix: "/notifications" });
   app.register(dashboardRoutes, { prefix: "/dashboards" });
   app.register(incidentRoutes, { prefix: "/platform" });
+  app.register(userRoutes, { prefix: "/users" });
 
   return app;
 }
