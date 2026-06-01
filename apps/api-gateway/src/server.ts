@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "./config/env";
 import { buildApp } from "./app";
 
 async function start() {

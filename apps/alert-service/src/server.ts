@@ -1,5 +1,8 @@
 import "dotenv/config";
 import Fastify, { FastifyRequest, FastifyReply } from "fastify";
+import path from "path";
+import dotenv from "dotenv";
+dotenv.config({ path: path.resolve(__dirname, "../.env"), override: true });
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import { PrismaClient } from "@prisma/client";

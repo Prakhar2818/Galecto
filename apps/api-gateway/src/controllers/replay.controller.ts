@@ -72,7 +72,7 @@ export class ReplayController {
       try {
         const response = await axios({
           method,
-          url: `http://localhost:3001${url}`,
+          url: url,
           data: body,
           headers: {
             ...headers,

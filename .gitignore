@@ -1,2 +1,8 @@
 node_modules
 dist/
+apps/*/dist/
+packages/*/dist/
+apps/*/src/*.js
+packages/*/src/*.js
+*.log
+auth.err

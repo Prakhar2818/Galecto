@@ -9,5 +9,5 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "exclude": ["apps/frontend/**/*", "node_modules"]
+  "exclude": ["apps/frontend/**/*", "NGO-APP/**/*", "node_modules"]
 }

@@ -23,6 +23,7 @@ model Organization {
   deployMarkers DeployMarker[]
   sloDefinitions SloDefinition[]
   apiKeyAuditLogs ApiKeyAuditLog[]
+  alertRules      AlertRule[]
 }
 
 model DeployMarker {
@@ -210,4 +211,44 @@ model Dashboard {
   createdBy       String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model AlertRule {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  enabled         Boolean  @default(true)
+  conditionType   String   // ERROR_RATE, LATENCY, THRESHOLD, ANOMALY
+  conditionValue  Json     // {threshold: 400, operator: ">=", windowMinutes: 5}
+  severity        String   // CRITICAL, HIGH, MEDIUM, LOW, INFO
+  cooldownMinutes Int      @default(5)
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  services        String[] // Target services
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  notifications   AlertNotification[]
+  executions      AlertExecution[]
+  @@index([organizationId, enabled])
+  @@index([severity])
+}
+
+model AlertNotification {
+  id          String   @id @default(uuid())
+  alertRuleId String
+  alertRule   AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  channelType String   // EMAIL, SLACK, TEAMS, WEBHOOK
+  channelId   String
+  createdAt   DateTime @default(now())
+  @@index([alertRuleId])
+}
+
+model AlertExecution {
+  id          String   @id @default(uuid())
+  alertRuleId String
+  alertRule   AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  triggeredAt DateTime @default(now())
+  status      String   // TRIGGERED, RESOLVED
+  eventData   Json
+  @@index([alertRuleId, triggeredAt])
 }
