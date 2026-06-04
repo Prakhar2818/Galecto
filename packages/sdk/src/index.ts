@@ -2,6 +2,11 @@ export interface GalectoConfig {
   apiKey: string;
   service: string;
   baseUrl?: string;
+  batchSize?: number;
+  flushInterval?: number;
+  maxRetries?: number;
+  sampleRate?: number;
+  timeout?: number;
 }
 
 export interface LogPayload {
@@ -18,28 +23,62 @@ export interface TracePayload {
   attributes?: Record<string, any>;
 }
 
+interface QueuedEvent {
+  type: string;
+  data: any;
+  timestamp: number;
+}
+
 export class Galecto {
   private apiKey: string;
   private service: string;
   private baseUrl: string;
   private enabled: boolean = true;
+  private batchSize: number;
+  private flushInterval: number;
+  private maxRetries: number;
+  private sampleRate: number;
+  private timeout: number;
+  private queue: QueuedEvent[] = [];
+  private flushTimer: NodeJS.Timeout | null = null;
+  private destroyed: boolean = false;
 
   constructor(config: GalectoConfig) {
     this.apiKey = config.apiKey;
     this.service = config.service;
     this.baseUrl = config.baseUrl || "http://localhost:3001";
-    
+    this.batchSize = config.batchSize || 100;
+    this.flushInterval = config.flushInterval || 5000;
+    this.maxRetries = config.maxRetries || 3;
+    this.sampleRate = config.sampleRate || 1;
+    this.timeout = config.timeout || 10000;
+
     if (!this.apiKey) {
       console.warn("Galecto: API key is required. Tracking disabled.");
       this.enabled = false;
     }
+
+    this.startFlushTimer();
   }
 
-  private async sendToIngest(event: string, data: any) {
-    if (!this.enabled) return;
-    
+  private startFlushTimer(): void {
+    if (this.destroyed) return;
+    this.flushTimer = setInterval(() => {
+      this.flush().catch(console.error);
+    }, this.flushInterval);
+  }
+
+  private async flush(): Promise<void> {
+    if (this.queue.length === 0 || this.destroyed) return;
+
+    const batch = this.queue.splice(0, this.batchSize);
+    const promises = batch.map(event => this.sendWithRetry(event, 0));
+    await Promise.allSettled(promises);
+  }
+
+  private async sendWithRetry(event: QueuedEvent, attempt: number): Promise<void> {
     try {
-      await fetch(`${this.baseUrl}/api/v1/ingest`, {
+      const response = await fetch(`${this.baseUrl}/api/v1/ingest`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -48,17 +87,45 @@ export class Galecto {
         },
         body: JSON.stringify({
           service: this.service,
-          event,
-          payload: data
-        })
+          event: event.type,
+          payload: event.data
+        }),
+        signal: AbortSignal.timeout(this.timeout)
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
     } catch (error) {
-      console.error("Galecto: Failed to send telemetry:", error);
+      if (attempt < this.maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.sendWithRetry(event, attempt + 1);
+      }
+      console.error(`Galecto: Failed to send event after ${this.maxRetries} retries:`, error);
+    }
+  }
+
+  private shouldSample(): boolean {
+    return Math.random() < this.sampleRate;
+  }
+
+  private sendToQueue(type: string, data: any): void {
+    if (!this.shouldSample() || this.destroyed) return;
+
+    this.queue.push({
+      type,
+      data,
+      timestamp: Date.now()
+    });
+
+    if (this.queue.length >= this.batchSize) {
+      this.flush().catch(console.error);
     }
   }
 
   log(payload: LogPayload) {
-    this.sendToIngest("LOG", {
+    this.sendToQueue("LOG", {
       level: payload.level || "info",
       message: payload.message,
       payload: payload.payload,
@@ -83,7 +150,7 @@ export class Galecto {
   }
 
   trace(payload: TracePayload) {
-    this.sendToIngest("TRACE", {
+    this.sendToQueue("TRACE", {
       name: payload.name,
       duration: payload.duration,
       status: payload.status || "ok",
@@ -93,7 +160,7 @@ export class Galecto {
   }
 
   metric(name: string, value: number, unit?: string) {
-    this.sendToIngest("METRIC", {
+    this.sendToQueue("METRIC", {
       name,
       value,
       unit,
@@ -104,10 +171,10 @@ export class Galecto {
   middleware() {
     return (req: any, res: any, next: any) => {
       const start = Date.now();
-      
+
       res.on('finish', () => {
         const duration = Date.now() - start;
-        
+
         this.trace({
           name: 'http-request',
           duration,
@@ -127,9 +194,17 @@ export class Galecto {
           });
         }
       });
-      
+
       next();
     };
+  }
+
+  async destroy(): Promise<void> {
+    this.destroyed = true;
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+    }
+    await this.flush();
   }
 }
 

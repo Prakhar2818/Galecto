@@ -8,6 +8,8 @@ import jwt from "@fastify/jwt";
 import { PrismaClient } from "@prisma/client";
 import { createConsumer } from "../../../packages/kafka/src/consumer";
 import { IEvent } from "../../../packages/api-types/src/index";
+import { notificationService } from "./notifiers";
+import { NotificationPayload } from "./notifiers/NotifierInterface";
 
 const app = Fastify({ logger: true });
 const prisma = new PrismaClient();
@@ -54,6 +56,30 @@ async function start() {
             }
           });
           app.log.warn({ alertId: alert.id }, "ALERT TRIGGERED AND PERSISTED");
+
+          const channels = await prisma.notificationChannel.findMany({
+            where: { organizationId: event.tenantId, enabled: true }
+          });
+
+          if (channels.length > 0) {
+            const notificationPayload: NotificationPayload = {
+              title: `Alert: ${event.service}`,
+              message: reason,
+              severity: event.payload.statusCode >= 400 ? "HIGH" : "MEDIUM",
+              service: event.service,
+              eventData: event.payload,
+              timestamp: new Date()
+            };
+
+            for (const channel of channels) {
+              try {
+                await notificationService.sendNotification(channel.type, notificationPayload);
+                console.log(`[AlertService] Sent ${channel.type} notification for alert ${alert.id}`);
+              } catch (notifError) {
+                console.error(`[AlertService] Failed to send ${channel.type} notification:`, notifError);
+              }
+            }
+          }
         } catch (err) {
           app.log.error({ err, tenantId: event.tenantId }, "Failed to persist alert");
         }
@@ -89,6 +115,36 @@ async function start() {
       });
       
       return { success: true };
+    });
+
+    app.post("/api/v1/test-notification", async (request, reply) => {
+      const user = request.user as any;
+      const orgId = user?.organizationId;
+      
+      const channels = await prisma.notificationChannel.findMany({
+        where: { organizationId: orgId, enabled: true }
+      });
+
+      const testPayload: NotificationPayload = {
+        title: "Test Alert from Galecto",
+        message: "This is a test notification to verify all channels are working.",
+        severity: "HIGH",
+        service: "test-service",
+        eventData: { test: true, timestamp: Date.now() },
+        timestamp: new Date()
+      };
+
+      const results = [];
+      for (const channel of channels) {
+        try {
+          await notificationService.sendNotification(channel.type, testPayload);
+          results.push({ channelId: channel.id, type: channel.type, status: "sent" });
+        } catch (error) {
+          results.push({ channelId: channel.id, type: channel.type, status: "failed", error: String(error) });
+        }
+      }
+
+      return { success: true, data: { testedChannels: results.length, results } };
     });
 
     const port = Number(process.env.PORT) || 5003;

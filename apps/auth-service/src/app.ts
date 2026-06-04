@@ -4,7 +4,7 @@ import jwt from "@fastify/jwt";
 import { authRoutes } from "./routes/auth.routes";
 import { projectRoutes } from "./routes/project.routes";
 import { organizationRoutes } from "./routes/organization.routes";
-import { notificationRoutes } from "./routes/notification.routes";
+import { notificationRoutes } from "./routes/notifications.routes";
 import { dashboardRoutes } from "./routes/dashboard.routes";
 import { incidentRoutes } from "./routes/incident.routes";
 import { userRoutes } from "./routes/user.routes";
@@ -39,7 +39,7 @@ export function buildApp() {
   app.register(authRoutes, { prefix: "/auth" });
   app.register(projectRoutes, { prefix: "/projects" });
   app.register(organizationRoutes, { prefix: "/organization" });
-  app.register(notificationRoutes, { prefix: "/notifications" });
+  app.register(notificationRoutes, { prefix: "/api/v1/notifications" });
   app.register(dashboardRoutes, { prefix: "/dashboards" });
   app.register(incidentRoutes, { prefix: "/platform" });
   app.register(userRoutes, { prefix: "/users" });

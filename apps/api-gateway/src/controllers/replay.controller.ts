@@ -138,6 +138,6 @@ export class ReplayController {
       take: 50
     });
 
-    return { success: true, data: replays };
+    return reply.send({ success: true, data: replays });
   }
 }

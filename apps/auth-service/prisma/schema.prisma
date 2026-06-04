@@ -187,6 +187,7 @@ model NotificationChannel {
 enum NotificationType {
   EMAIL
   SLACK
+  TEAMS
   WEBHOOK
   PAGERDUTY
 }
