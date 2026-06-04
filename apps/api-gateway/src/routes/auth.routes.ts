@@ -33,6 +33,13 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send(res);
   });
 
+  app.post("/api/v1/auth/logout", async (req: any, reply) => {
+    return reply.send({ 
+      success: true, 
+      message: "Logged out successfully" 
+    });
+  });
+
   app.get("/projects", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
     const headers = req.headers;
     const res = await authClient.listProjects(headers);
@@ -93,6 +100,27 @@ export async function authRoutes(app: FastifyInstance) {
     const headers = req.headers;
     const { userId } = req.params;
     const res = await authClient.removeUser(userId, headers);
+    return reply.send(res);
+  });
+
+  // SLO Targets routes
+  app.get("/api/v1/slo/targets", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const res = await authClient.getSloTargets(headers);
+    return reply.send(res);
+  });
+
+  app.put("/api/v1/slo/targets", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const res = await authClient.upsertSloTarget(data, headers);
+    return reply.send(res);
+  });
+
+  app.delete("/api/v1/slo/targets/:serviceName", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const { serviceName } = req.params;
+    const res = await authClient.deleteSloTarget(serviceName, headers);
     return reply.send(res);
   });
 }

@@ -179,4 +179,56 @@ export class SloController {
 
     return reply.send({ success: true });
   }
+
+  async listSloTargets(req: FastifyRequest, reply: FastifyReply) {
+    const organizationId = (req as any).user.organizationId;
+
+    const targets = await prisma.sloTarget.findMany({
+      where: { organizationId },
+      orderBy: { serviceName: 'asc' }
+    });
+
+    return reply.send({ success: true, data: targets });
+  }
+
+  async upsertSloTarget(req: FastifyRequest, reply: FastifyReply) {
+    const organizationId = (req as any).user.organizationId;
+    const { service, errorRateThreshold, latencyThreshold } = req.body as any;
+
+    if (!service) {
+      return reply.status(400).send({ success: false, error: 'Service name is required' });
+    }
+
+    const target = await prisma.sloTarget.upsert({
+      where: {
+        organizationId_serviceName: {
+          organizationId,
+          serviceName: service
+        }
+      },
+      update: {
+        errorRateThreshold: errorRateThreshold ?? 1.0,
+        latencyThreshold: latencyThreshold ?? 500
+      },
+      create: {
+        organizationId,
+        serviceName: service,
+        errorRateThreshold: errorRateThreshold ?? 1.0,
+        latencyThreshold: latencyThreshold ?? 500
+      }
+    });
+
+    return reply.send({ success: true, data: target });
+  }
+
+  async deleteSloTarget(req: FastifyRequest, reply: FastifyReply) {
+    const organizationId = (req as any).user.organizationId;
+    const { serviceName } = req.params as { serviceName: string };
+
+    await prisma.sloTarget.deleteMany({
+      where: { organizationId, serviceName }
+    });
+
+    return reply.send({ success: true });
+  }
 }

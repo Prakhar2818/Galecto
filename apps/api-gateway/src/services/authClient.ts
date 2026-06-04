@@ -103,4 +103,31 @@ export class AuthClient {
       headers
     );
   }
+
+  async getSloTargets(headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/platform/slo/targets`,
+      "GET",
+      undefined,
+      headers
+    );
+  }
+
+  async upsertSloTarget(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/platform/slo/targets`,
+      "PUT",
+      data,
+      headers
+    );
+  }
+
+  async deleteSloTarget(serviceName: string, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/platform/slo/targets/${encodeURIComponent(serviceName)}`,
+      "DELETE",
+      undefined,
+      headers
+    );
+  }
 }

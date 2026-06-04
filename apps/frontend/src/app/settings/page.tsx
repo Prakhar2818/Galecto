@@ -44,7 +44,8 @@ export default function SettingsPage() {
   };
 
   // Fetch organization settings
-  const fetchOrgSettings = async () => {
+  const fetchOrgSettings = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const data = await apiFetch('/organization/settings');
       if (data.success && data.data) {
@@ -54,11 +55,13 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error('Failed to fetch org settings', err);
+    } finally {
+      if (!isBackground) setLoading(false);
     }
   };
 
   // Fetch team members
-  const fetchUsers = async () => {
+  const fetchUsers = async (isBackground = false) => {
     try {
       const data = await apiFetch('/users');
       if (data.success) setUsers(data.data || []);
@@ -67,15 +70,15 @@ export default function SettingsPage() {
     }
   };
 
-  const fetchProjects = async () => {
-    setLoading(true);
+  const fetchProjects = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const data = await apiFetch('/projects');
-      if (data.success) setProjects(data.data);
+      if (data.success) setProjects(data.data || []);
     } catch (err) {
       console.error('Failed to fetch projects', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
@@ -91,9 +94,9 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    fetchOrgSettings();
-    fetchUsers();
-    fetchProjects();
+    fetchOrgSettings(false);
+    fetchUsers(false);
+    fetchProjects(false);
     fetchRetentionSettings();
   }, []);
 
@@ -674,19 +677,3 @@ function SettingsNavItem({ icon, label, active, onClick }: any) {
   );
 }
 
-function UserRow({ name, role, email }: any) {
-  return (
-    <div className="flex items-center justify-between p-6 bg-slate-50 rounded-3xl hover:bg-slate-100 transition-colors cursor-pointer group">
-       <div className="flex items-center gap-4">
-          <img src={`https://i.pravatar.cc/100?u=${name}`} alt={name} className="w-12 h-12 rounded-2xl" />
-          <div>
-             <div className="text-sm font-black font-sora text-slate-900">{name}</div>
-             <div className="text-[10px] font-bold text-slate-400">{email}</div>
-          </div>
-       </div>
-       <div className="text-right">
-          <div className="text-xs font-bold text-slate-500">{role}</div>
-       </div>
-    </div>
-  );
-}

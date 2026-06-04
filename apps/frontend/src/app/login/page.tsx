@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Github, Mail, Zap, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Zap, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/apiClient';
 
@@ -11,7 +12,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,17 +32,25 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      if (data.success) {
+      if (data.success && data.token && data.user) {
         login(data.token, data.user);
       } else {
-        setError(data.error || 'Login failed. Please check your credentials.');
+        setError(data.error?.message || 'Invalid email or password. Please try again.');
       }
     } catch (err) {
-      setError('Connection refused. Is the API Gateway running?');
+      setError('Unable to connect. Please check your network connection and try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -76,16 +92,7 @@ export default function LoginPage() {
             <p className="text-slate-500 font-medium">Log in to manage your tracing infrastructure.</p>
           </div>
 
-          <div className="space-y-4">
-            <button className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border border-slate-200 rounded-2xl font-bold hover:bg-slate-50 transition-all">
-              <Github className="w-5 h-5" />
-              Continue with GitHub
-            </button>
-            <button className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border border-slate-200 rounded-2xl font-bold hover:bg-slate-50 transition-all">
-              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
-              Continue with Google
-            </button>
-          </div>
+          
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

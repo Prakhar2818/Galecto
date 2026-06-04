@@ -1,56 +1,156 @@
-export async function apiFetch(endpoint: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('ag_token');
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    ...(options.headers || {}),
-  };
+const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:3001';
+const QUERY_SERVICE_URL = process.env.NEXT_PUBLIC_QUERY_SERVICE_URL || 'http://localhost:4002';
+const ALERT_SERVICE_URL = process.env.NEXT_PUBLIC_ALERT_SERVICE_URL || 'http://localhost:5003';
 
-  const response = await fetch(`http://localhost:3001${endpoint}`, {
-    ...options,
-    headers,
-  });
+const DEFAULT_TIMEOUT = 10000;
+const MAX_RETRIES = 3;
 
-  if (response.status === 401) {
-    localStorage.removeItem('ag_token');
-    window.location.href = '/login';
+interface FetchOptions extends RequestInit {
+  timeout?: number;
+  retries?: number;
+}
+
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeout: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries: number
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, options, DEFAULT_TIMEOUT);
+
+      if (response.ok) {
+        return response;
+      }
+
+      if (response.status === 401) {
+        localStorage.removeItem('ag_token');
+        localStorage.removeItem('ag_user');
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+        throw new ApiError('Unauthorized', 401, 'AUTH_EXPIRED');
+      }
+
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        errorData.error?.message || `Request failed with status ${response.status}`,
+        response.status,
+        errorData.error?.code
+      );
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      lastError = error as Error;
+
+      if (attempt < retries) {
+        const delay = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
-  return response.json();
+  throw lastError || new Error('Request failed after retries');
 }
 
-// Special fetch for Query Service (if it requires direct access or specific port)
-export async function queryFetch(endpoint: string, options: RequestInit = {}) {
+async function makeRequest(
+  baseUrl: string,
+  endpoint: string,
+  options: FetchOptions = {}
+): Promise<any> {
   const token = localStorage.getItem('ag_token');
-  
-  const headers = {
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    ...(options.headers || {}),
+    ...(options.headers as Record<string, string> || {}),
   };
 
-  const response = await fetch(`http://localhost:4002${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const { timeout, retries, ...fetchOptions } = options;
+  const effectiveRetries = retries ?? MAX_RETRIES;
 
-  return response.json();
+  try {
+    const response = await fetchWithRetry(
+      `${baseUrl}${endpoint}`,
+      {
+        ...fetchOptions,
+        headers,
+      },
+      effectiveRetries
+    );
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError('Request timeout', 408, 'TIMEOUT');
+    }
+
+    throw new ApiError(
+      error instanceof Error ? error.message : 'Network error',
+      0,
+      'NETWORK_ERROR'
+    );
+  }
 }
 
-export async function alertFetch(endpoint: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('ag_token');
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    ...(options.headers || {}),
-  };
-
-  const response = await fetch(`http://localhost:5003${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  return response.json();
+export async function apiFetch(
+  endpoint: string,
+  options: FetchOptions = {}
+): Promise<any> {
+  return makeRequest(API_GATEWAY_URL, endpoint, options);
 }
+
+export async function queryFetch(
+  endpoint: string,
+  options: FetchOptions = {}
+): Promise<any> {
+  return makeRequest(QUERY_SERVICE_URL, endpoint, options);
+}
+
+export async function alertFetch(
+  endpoint: string,
+  options: FetchOptions = {}
+): Promise<any> {
+  return makeRequest(ALERT_SERVICE_URL, endpoint, options);
+}
+
+export { ApiError };

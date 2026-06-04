@@ -8,25 +8,12 @@ import { Terminal, Code2, Book, Copy, Check, Zap, Server, ShieldCheck, Box } fro
 export default function DeveloperDocsPage() {
   const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  const [activeTab, setActiveTab] = useState<'node' | 'go' | 'python'>('node');
 
   const copyCode = (id: string, code: string) => {
     navigator.clipboard.writeText(code);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
-  };
-
-  const handleSdkClick = (sdkName: string, disabled: boolean) => {
-    if (disabled) {
-      setToastMessage(`${sdkName} SDK is coming soon!`);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    } else {
-      setToastMessage(`${sdkName} SDK - Installation guide below`);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    }
   };
 
   const handleRotateKeys = () => {
@@ -48,6 +35,40 @@ galecto.log({
   payload: { amount: 29.99, currency: 'USD' }
 });`;
 
+  const goCode = `// Install: go get github.com/galecto/galecto-go
+package main
+
+import (
+    "github.com/galecto/galecto-go"
+)
+
+func main() {
+    client := galecto.New(galecto.Config{
+        APIKey:   "YOUR_PROJECT_API_KEY",
+        Service:  "order-service",
+    })
+
+    client.Log(galecto.LogEntry{
+        Level:    "info",
+        Message:  "Order placed successfully",
+        Payload:  map[string]interface{}{"orderId": "ORD-123"},
+    })
+}`;
+
+  const pythonCode = `# Install: pip install galecto
+import galecto
+
+client = galecto.Client(
+    api_key='YOUR_PROJECT_API_KEY',
+    service='user-service'
+)
+
+client.log(
+    level='info',
+    message='User logged in',
+    payload={'userId': 'usr_456', 'method': 'oauth'}
+)`;
+
   const curlCode = `curl -X POST http://localhost:3001/api/v1/ingest \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -56,6 +77,20 @@ galecto.log({
     "event": "ORDER_CREATED",
     "payload": { "orderId": "ORD-123" }
   }'`;
+
+  const getTraceCode = `curl -X GET http://localhost:3001/api/v1/traces/TRACE_ID \\
+  -H "Authorization: Bearer YOUR_API_KEY"`;
+
+  const getMetricsCode = `curl -X GET http://localhost:3001/api/v1/traces/metrics \\
+  -H "Authorization: Bearer YOUR_API_KEY"`;
+
+  const getCurrentCode = () => {
+    switch (activeTab) {
+      case 'go': return goCode;
+      case 'python': return pythonCode;
+      default: return nodeCode;
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -69,11 +104,45 @@ galecto.log({
       <div className="grid grid-cols-12 gap-10">
         {/* Main Content */}
         <div className="col-span-8 space-y-12">
-          {/* Section: Getting Started */}
+          {/* Section: SDKs */}
           <section>
             <h3 className="text-xl font-black font-sora mb-6 flex items-center gap-3">
-              <Zap className="text-emerald-500" /> Quick Start
+              <Code2 className="text-emerald-500" /> SDK Installation
             </h3>
+            
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setActiveTab('node')}
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  activeTab === 'node' 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Node.js
+              </button>
+              <button
+                onClick={() => setActiveTab('go')}
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  activeTab === 'go' 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Go
+              </button>
+              <button
+                onClick={() => setActiveTab('python')}
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  activeTab === 'python' 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Python
+              </button>
+            </div>
+
             <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden">
                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px]" />
                <div className="relative z-10">
@@ -84,15 +153,15 @@ galecto.log({
                         <div className="w-3 h-3 rounded-full bg-green-500/20" />
                      </div>
                      <button 
-                       onClick={() => copyCode('node', nodeCode)}
+                       onClick={() => copyCode('sdk', getCurrentCode())}
                        className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-2 transition-colors"
                      >
-                        {copied === 'node' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                        {copied === 'node' ? 'Copied!' : 'Copy Snippet'}
+                        {copied === 'sdk' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                        {copied === 'sdk' ? 'Copied!' : 'Copy Snippet'}
                      </button>
                   </div>
                   <pre className="font-mono text-sm leading-relaxed text-emerald-100/80 overflow-x-auto">
-                    <code>{nodeCode}</code>
+                    <code>{getCurrentCode()}</code>
                   </pre>
                </div>
             </div>
@@ -116,6 +185,17 @@ galecto.log({
                   method="GET" 
                   path="/api/v1/traces/:id" 
                   desc="Retrieve the full causality tree for a specific trace."
+                  code={getTraceCode}
+                  copied={copied === 'trace'}
+                  onCopy={() => copyCode('trace', getTraceCode)}
+               />
+               <ApiEndpoint 
+                  method="GET" 
+                  path="/api/v1/traces/metrics" 
+                  desc="Retrieve aggregated metrics for all services."
+                  code={getMetricsCode}
+                  copied={copied === 'metrics'}
+                  onCopy={() => copyCode('metrics', getMetricsCode)}
                />
             </div>
           </section>
@@ -123,14 +203,59 @@ galecto.log({
 
         {/* Sidebar */}
         <div className="col-span-4 space-y-8">
-           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-              <h4 className="text-sm font-black font-sora uppercase tracking-widest text-slate-400 mb-6">Integration SDKs</h4>
-<div className="space-y-4">
-                  <SdkItem icon={<Code2 className="text-blue-500" />} name="Node.js SDK" version="v1.2.0" onClick={() => handleSdkClick('Node.js', false)} />
-                  <SdkItem icon={<Server className="text-orange-500" />} name="Go Package" version="Coming Soon" disabled onClick={() => handleSdkClick('Go', true)} />
-                  <SdkItem icon={<Box className="text-blue-400" />} name="Python Wrapper" version="Coming Soon" disabled onClick={() => handleSdkClick('Python', true)} />
+<div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+               <h4 className="text-sm font-black font-sora uppercase tracking-widest text-slate-400 mb-6">Integration SDKs</h4>
+               <div className="space-y-4">
+                 <div className="flex items-center justify-between p-4 rounded-2xl border border-emerald-200 bg-emerald-50">
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                        <Code2 className="text-blue-500" />
+                     </div>
+                     <div>
+                       <div className="text-sm font-bold text-slate-900">Node.js SDK</div>
+                       <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">v1.2.0 • Available</div>
+                     </div>
+                   </div>
+                   <Check size={16} className="text-emerald-500" />
+                 </div>
+                 <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-slate-50 opacity-75">
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                        <Server className="text-orange-500" />
+                     </div>
+                     <div>
+                       <div className="text-sm font-bold text-slate-700">Go Package</div>
+                       <div className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Under Development</div>
+                     </div>
+                   </div>
+                   <span className="text-xs font-bold text-orange-500 px-2 py-1 bg-orange-50 rounded-lg">Soon</span>
+                 </div>
+                 <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-slate-50 opacity-75">
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                        <Box className="text-blue-400" />
+                     </div>
+                     <div>
+                       <div className="text-sm font-bold text-slate-700">Python Wrapper</div>
+                       <div className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Under Development</div>
+                     </div>
+                   </div>
+                   <span className="text-xs font-bold text-orange-500 px-2 py-1 bg-orange-50 rounded-lg">Soon</span>
+                 </div>
+                 <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-slate-50 opacity-75">
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                        <Box className="text-purple-500" />
+                     </div>
+                     <div>
+                       <div className="text-sm font-bold text-slate-700">Java SDK</div>
+                       <div className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Under Development</div>
+                     </div>
+                   </div>
+                   <span className="text-xs font-bold text-orange-500 px-2 py-1 bg-orange-50 rounded-lg">Soon</span>
+                 </div>
                </div>
-           </div>
+            </div>
 
            <div className="bg-emerald-500 p-8 rounded-[2.5rem] text-white">
               <ShieldCheck size={32} className="mb-4 opacity-50" />
@@ -143,41 +268,11 @@ galecto.log({
                className="mt-6 text-sm font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 py-3 w-full rounded-xl transition-all"
             >
                  Rotate Keys
-               </button>
+              </button>
            </div>
         </div>
       </div>
-
-      {/* Toast Notification */}
-      {showToast && (
-        <div className="fixed bottom-8 right-8 bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-xl z-50 animate-in slide-in-from-bottom-4">
-          <div className="flex items-center gap-3">
-            <Zap className="w-5 h-5 text-emerald-400" />
-            <span className="font-bold">{toastMessage}</span>
-          </div>
-        </div>
-      )}
     </DashboardLayout>
-  );
-}
-
-function SdkItem({ icon, name, version, disabled, onClick }: any) {
-  return (
-    <div 
-      onClick={onClick}
-      className={`flex items-center justify-between p-4 rounded-2xl border border-slate-50 ${disabled ? 'opacity-40 grayscale' : 'hover:bg-slate-50 transition-colors cursor-pointer'}`}
-    >
-       <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
-             {icon}
-          </div>
-          <div>
-             <div className="text-sm font-bold text-slate-900">{name}</div>
-             <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{version}</div>
-          </div>
-       </div>
-       {!disabled && <Book size={16} className="text-slate-300" />}
-    </div>
   );
 }
 

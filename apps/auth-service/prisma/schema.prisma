@@ -22,6 +22,7 @@ model Organization {
   dashboards    Dashboard[]
   deployMarkers DeployMarker[]
   sloDefinitions SloDefinition[]
+  sloTargets    SloTarget[]
   apiKeyAuditLogs ApiKeyAuditLog[]
   alertRules      AlertRule[]
 }
@@ -48,6 +49,19 @@ model SloDefinition {
   targetPercent   Float
   windowDays      Int      @default(7)
   createdAt       DateTime @default(now())
+}
+
+model SloTarget {
+  id                  String   @id @default(uuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  serviceName         String
+  errorRateThreshold  Float    @default(1.0)   // max error rate percentage (e.g., 1.0 = allow max 1% errors)
+  latencyThreshold    Int      @default(500)   // max P99 latency in ms
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  @@unique([organizationId, serviceName])
+  @@index([organizationId])
 }
 
 model ApiKeyAuditLog {

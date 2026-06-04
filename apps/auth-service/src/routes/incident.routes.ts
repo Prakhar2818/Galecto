@@ -32,4 +32,9 @@ export async function incidentRoutes(app: FastifyInstance) {
   app.get("/slos", sloCtrl.listSlos);
   app.post("/slos", { preHandler: requireRole(Role.OWNER, Role.ADMIN) }, sloCtrl.createSlo);
   app.delete("/slos/:sloId", { preHandler: requireRole(Role.OWNER, Role.ADMIN) }, sloCtrl.deleteSlo);
+
+  // SLO Targets
+  app.get("/slo/targets", sloCtrl.listSloTargets);
+  app.put("/slo/targets", sloCtrl.upsertSloTarget);
+  app.delete("/slo/targets/:serviceName", sloCtrl.deleteSloTarget);
 }

@@ -122,6 +122,8 @@ export default function LandingPage() {
             <Link href="/terms">Terms</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/status">Status</Link>
+            <Link href="/about">About</Link>
+            <Link href="/contact">Contact</Link>
           </div>
           <p className="text-sm text-slate-400 font-medium">© 2026 Galecto Inc. All rights reserved.</p>
         </div>

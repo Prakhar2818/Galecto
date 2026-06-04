@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Github, Mail, Zap, Loader2, CheckCircle2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Zap, Loader2, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/apiClient';
 
@@ -12,12 +13,31 @@ export default function SignupPage() {
   const [orgName, setOrgName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (!orgName.trim()) {
+      setError('Organization name is required');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      setLoading(false);
+      return;
+    }
 
     try {
       const data = await apiFetch('/api/v1/auth/signup', {
@@ -25,17 +45,25 @@ export default function SignupPage() {
         body: JSON.stringify({ email, password, organizationName: orgName }),
       });
 
-      if (data.success) {
+      if (data.success && data.token && data.user) {
         login(data.token, data.user);
       } else {
-        setError(data.error || 'Signup failed. Please try again.');
+        setError(data.error?.message || 'Signup failed. Please try again.');
       }
     } catch (err) {
-      setError('Connection refused. Is the API Gateway running?');
+      setError('Unable to connect. Please check your network connection and try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row-reverse">
