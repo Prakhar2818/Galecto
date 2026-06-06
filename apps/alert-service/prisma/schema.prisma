@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -7,17 +8,79 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum AlertSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
 model Alert {
-  id            String       @id @default(uuid())
-  traceId       String
-  service       String
-  type          String
-  message       String
-  status        String       @default("ACTIVE")
-  severity      String       @default("MEDIUM")
+  id             String        @id @default(uuid())
+  traceId        String
+  service        String
+  type           String
+  message        String
+  status         AlertStatus   @default(ACTIVE)
+  severity       AlertSeverity @default(MEDIUM)
   organizationId String
-  assignedTo    String?
-  slaDueAt      DateTime?
-  createdAt     DateTime     @default(now())
-  resolvedAt    DateTime?
+  assignedTo     String?
+  slaDueAt       DateTime?
+  createdAt      DateTime      @default(now())
+  resolvedAt     DateTime?
+}
+
+model NotificationChannel {
+  id             String   @id @default(uuid())
+  organizationId String
+  type           String
+  name           String
+  config         Json
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model AlertRule {
+  id              String             @id @default(uuid())
+  name            String
+  description     String?
+  enabled         Boolean            @default(true)
+  conditionType   String
+  conditionValue  Json
+  severity        String
+  cooldownMinutes Int                @default(5)
+  organizationId  String
+  services        String[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  notifications   AlertNotification[]
+  executions      AlertExecution[]
+  @@index([organizationId, enabled])
+}
+
+model AlertNotification {
+  id          String    @id @default(uuid())
+  alertRuleId String
+  alertRule   AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  channelType String
+  channelId   String
+  createdAt   DateTime  @default(now())
+  @@index([alertRuleId])
+}
+
+model AlertExecution {
+  id          String    @id @default(uuid())
+  alertRuleId String
+  alertRule   AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  triggeredAt DateTime  @default(now())
+  status      String
+  eventData   Json
+  @@index([alertRuleId, triggeredAt])
 }

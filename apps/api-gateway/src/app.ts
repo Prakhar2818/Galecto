@@ -17,7 +17,8 @@ export function buildApp() {
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
     exposedHeaders: ["Content-Type"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    preflight: true
   });
 
   app.register(jwt, {

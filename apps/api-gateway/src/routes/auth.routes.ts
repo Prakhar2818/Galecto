@@ -2,9 +2,6 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { AuthClient } from "../services/authClient";
 
 async function jwtAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
-  if (request.method === "OPTIONS") {
-    return reply.status(200).send();
-  }
   try {
     await request.jwtVerify();
   } catch (err) {
@@ -121,6 +118,93 @@ export async function authRoutes(app: FastifyInstance) {
     const headers = req.headers;
     const { serviceName } = req.params;
     const res = await authClient.deleteSloTarget(serviceName, headers);
+    return reply.send(res);
+  });
+
+  // Notification Channels routes
+  app.get("/api/v1/notifications", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const res = await authClient.getNotificationChannels(headers);
+    return reply.send(res);
+  });
+
+  app.post("/api/v1/notifications", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const res = await authClient.createNotificationChannel(data, headers);
+    return reply.send(res);
+  });
+
+  app.put("/api/v1/notifications/:id", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const { id } = req.params;
+    const res = await authClient.updateNotificationChannel(id, data, headers);
+    return reply.send(res);
+  });
+
+  app.delete("/api/v1/notifications/:id", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const { id } = req.params;
+    const res = await authClient.deleteNotificationChannel(id, headers);
+    return reply.send(res);
+  });
+
+  app.post("/api/v1/notifications/:id/test", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const { id } = req.params;
+    const res = await authClient.testNotificationChannel(id, headers);
+    return reply.send(res);
+  });
+
+  // Trigger test alert endpoint
+  app.post("/api/v1/trigger-test-alert", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const res = await authClient.triggerTestAlert(headers);
+    return reply.send(res);
+  });
+
+  // Alert Rules routes
+  app.get("/api/v1/platform/rules", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const res = await authClient.getRules(headers);
+    return reply.send(res);
+  });
+
+  app.post("/api/v1/platform/rules", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const res = await authClient.createRule(data, headers);
+    return reply.send(res);
+  });
+
+  app.put("/api/v1/platform/rules/:id", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const { id } = req.params;
+    const res = await authClient.updateRule(id, data, headers);
+    return reply.send(res);
+  });
+
+  app.delete("/api/v1/platform/rules/:id", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const { id } = req.params;
+    const res = await authClient.deleteRule(id, headers);
+    return reply.send(res);
+  });
+
+  app.post("/api/v1/platform/rules/:id/test", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const { id } = req.params;
+    const res = await authClient.testRule(id, headers);
+    return reply.send(res);
+  });
+
+  app.get("/api/v1/platform/rules/:id/executions", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const headers = req.headers;
+    const { id } = req.params;
+    const res = await authClient.getRuleExecutions(id, headers);
     return reply.send(res);
   });
 }

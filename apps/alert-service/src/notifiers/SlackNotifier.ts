@@ -2,55 +2,95 @@ import { BaseNotifier, NotificationPayload } from "./NotifierInterface";
 import axios from "axios";
 
 export class SlackNotifier extends BaseNotifier {
-  async send(payload: NotificationPayload): Promise<void> {
-    const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  async send(payload: NotificationPayload, channelConfig?: any): Promise<void> {
+    const webhookUrl = channelConfig?.webhook_url || process.env.SLACK_WEBHOOK_URL;
     if (!webhookUrl) {
       console.log(`[SlackNotifier] Webhook URL not configured, logging notification instead`);
       console.log(`[SlackNotifier] Would send to Slack: ${payload.title} - ${payload.message}`);
       return;
     }
 
-    const blocks = [
-      {
-        type: "header",
-        text: { type: "plain_text", text: `🚨 ${payload.title}`, emoji: true }
-      },
-      {
-        type: "section",
-        fields: [
-          { type: "mrkdwn", text: `*Severity:*\n${payload.severity}` },
-          { type: "mrkdwn", text: `*Service:*\n${payload.service}` },
-          { type: "mrkdwn", text: `*Time:*\n${payload.timestamp.toISOString()}` }
-        ]
-      },
-      {
-        type: "section",
-        text: { type: "mrkdwn", text: payload.message }
-      }
-    ];
+    const severityEmoji = this.getSeverityEmoji(payload.severity);
+
+    const slackMessage: any = {
+      blocks: [
+        {
+          type: "header",
+          text: { type: "plain_text", text: `${severityEmoji} ${payload.title}`, emoji: true }
+        },
+        {
+          type: "section",
+          fields: [
+            { type: "mrkdwn", text: `*Severity:*\n${payload.severity}` },
+            { type: "mrkdwn", text: `*Service:*\n${payload.service}` },
+            { type: "mrkdwn", text: `*Time:*\n${payload.timestamp.toISOString()}` }
+          ]
+        },
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: payload.message }
+        }
+      ]
+    };
 
     if (payload.eventData) {
-      blocks.push({
+      slackMessage.blocks.push({
         type: "section",
         text: { type: "mrkdwn", text: `\`\`\`${JSON.stringify(payload.eventData, null, 2)}\`\`\`` }
       });
     }
 
+    slackMessage.blocks.push({ type: "divider" });
+
+    slackMessage.blocks.push({
+      type: "context",
+      elements: [
+        { type: "mrkdwn", text: "Sent by *Galecto Observability Platform*" }
+      ]
+    });
+
     try {
-      await axios.post(webhookUrl, { blocks, text: `${payload.severity}: ${payload.title}` }, {
+      await axios.post(webhookUrl, slackMessage, {
         headers: { "Content-Type": "application/json" }
       });
       console.log(`[SlackNotifier] Sent notification: ${payload.title}`);
     } catch (error) {
       console.error(`[SlackNotifier] Failed to send Slack notification:`, error);
+      throw error;
     }
   }
 
-  async test(channelConfig: { webhook_url: string }): Promise<boolean> {
+  private getSeverityEmoji(severity: string): string {
+    switch (severity) {
+      case "CRITICAL": return "🔥";
+      case "HIGH": return "⚠️";
+      case "MEDIUM": return "📋";
+      case "LOW": return "ℹ️";
+      default: return "📢";
+    }
+  }
+
+  async test(channelConfig: { webhook_url?: string }): Promise<boolean> {
+    const webhookUrl = channelConfig.webhook_url || process.env.SLACK_WEBHOOK_URL;
+    if (!webhookUrl) {
+      console.log(`[SlackNotifier] No webhook URL available for test`);
+      return false;
+    }
     try {
-      await axios.post(channelConfig.webhook_url, { text: "✅ Galecto Alert Test" });
+      const testMessage: any = {
+        blocks: [
+          {
+            type: "section",
+            text: { type: "mrkdwn", text: "✅ *Galecto Alert Test*\n\nThis is a test notification from Galecto Observability Platform." }
+          }
+        ]
+      };
+      await axios.post(webhookUrl, testMessage, {
+        headers: { "Content-Type": "application/json" }
+      });
       return true;
     } catch (error) {
+      console.error(`[SlackNotifier] Test failed:`, error);
       return false;
     }
   }

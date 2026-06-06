@@ -8,12 +8,12 @@ export interface NotificationPayload {
 }
 
 export interface Notifier {
-  send(payload: NotificationPayload): Promise<void>;
+  send(payload: NotificationPayload, channelConfig?: any): Promise<void>;
   test(channelConfig: any): Promise<boolean>;
 }
 
 export abstract class BaseNotifier implements Notifier {
-  abstract send(payload: NotificationPayload): Promise<void>;
+  abstract send(payload: NotificationPayload, channelConfig?: any): Promise<void>;
   abstract test(channelConfig: any): Promise<boolean>;
 
   protected formatMessage(payload: NotificationPayload): string {

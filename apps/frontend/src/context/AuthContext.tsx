@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     try {
       if (token) {
-        await apiFetch('/auth/logout', { method: 'POST' }).catch(() => {});
+        await apiFetch('/api/v1/auth/logout', { method: 'POST', body: JSON.stringify({}) }).catch(() => {});
       }
     } finally {
       if (refreshIntervalRef.current) {

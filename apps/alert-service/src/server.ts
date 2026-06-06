@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../.env"), override: true });
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, AlertStatus, AlertSeverity } from "@prisma/client";
 import { createConsumer } from "../../../packages/kafka/src/consumer";
 import { IEvent } from "../../../packages/api-types/src/index";
 import { notificationService } from "./notifiers";
@@ -15,6 +15,10 @@ const app = Fastify({ logger: true });
 const prisma = new PrismaClient();
 
 async function jwtAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
+  const publicPaths = ['/api/v1/send-test-notifications', '/health'];
+  if (publicPaths.some(path => request.url.startsWith(path))) {
+    return;
+  }
   try {
     await request.jwtVerify();
   } catch (err) {
@@ -29,18 +33,77 @@ async function start() {
       secret: process.env.JWT_SECRET || "secret",
     });
 
+    app.post("/api/v1/send-test-notifications", { preHandler: [] }, async (req, reply) => {
+      console.log(`[AlertService] Received request to send test notifications`);
+
+      const notificationPayload: NotificationPayload = {
+        title: `🚨 TEST NOTIFICATION: Direct Test`,
+        message: "This is a direct test of the notification system - checking if Slack and Email are working!",
+        severity: "HIGH",
+        service: "test-service",
+        eventData: {
+          test: true,
+          timestamp: Date.now(),
+          source: "direct-api-call"
+        },
+        timestamp: new Date()
+      };
+
+      const results: any = {};
+
+      try {
+        await notificationService.sendNotification("SLACK", notificationPayload);
+        results.slack = "sent";
+        console.log(`[AlertService] SLACK notification sent`);
+      } catch (error) {
+        results.slack = `failed: ${error}`;
+        console.error(`[AlertService] SLACK notification failed:`, error);
+      }
+
+      try {
+        await notificationService.sendNotification("EMAIL", notificationPayload);
+        results.email = "sent";
+        console.log(`[AlertService] EMAIL notification sent`);
+      } catch (error) {
+        results.email = `failed: ${error}`;
+        console.error(`[AlertService] EMAIL notification failed:`, error);
+      }
+
+      return {
+        success: true,
+        data: {
+          message: "Test notifications sent",
+          results
+        }
+      };
+    });
+
     await createConsumer("alert-service-group", "events", async (event: IEvent) => {
       let triggerAlert = false;
       let reason = "";
+      let statusCode = 0;
+      let durationMs = 0;
 
-      if (event.name.includes("RESPONSE") && event.payload.statusCode >= 400) {
-        triggerAlert = true;
-        reason = `High Error Rate: ${event.service} returned status ${event.payload.statusCode}`;
+      // Handle SDK trace format (http-request with attributes.status)
+      if (event.name === "INGEST_LOG" && event.payload?.event === "TRACE") {
+        const traceData = event.payload?.payload || event.payload;
+        statusCode = traceData?.attributes?.status || traceData?.statusCode || 0;
+        durationMs = traceData?.duration || traceData?.durationMs || 0;
+      }
+      // Handle direct trace format
+      else if (event.name.includes("RESPONSE") || event.name.includes("TRACE")) {
+        statusCode = event.payload?.statusCode || event.payload?.status || 0;
+        durationMs = event.payload?.durationMs || event.payload?.duration || 0;
       }
 
-      if (event.payload.durationMs > 500) {
+      if (statusCode >= 400) {
         triggerAlert = true;
-        reason = `Latency Spike: ${event.service} request took ${event.payload.durationMs}ms`;
+        reason = `High Error Rate: ${event.service} returned status ${statusCode}`;
+      }
+
+      if (durationMs > 500) {
+        triggerAlert = true;
+        reason = `Latency Spike: ${event.service} request took ${durationMs}ms`;
       }
 
       if (triggerAlert && event.tenantId) {
@@ -49,9 +112,9 @@ async function start() {
             data: {
               traceId: event.traceId,
               service: event.service,
-              type: event.payload.statusCode >= 400 ? 'ERROR' : 'LATENCY',
+              type: statusCode >= 400 ? 'ERROR' : 'LATENCY',
               message: reason,
-              status: 'ACTIVE',
+              status: AlertStatus.ACTIVE,
               organizationId: event.tenantId,
             }
           });
@@ -65,7 +128,7 @@ async function start() {
             const notificationPayload: NotificationPayload = {
               title: `Alert: ${event.service}`,
               message: reason,
-              severity: event.payload.statusCode >= 400 ? "HIGH" : "MEDIUM",
+              severity: statusCode >= 400 ? "HIGH" : "MEDIUM",
               service: event.service,
               eventData: event.payload,
               timestamp: new Date()
@@ -73,7 +136,7 @@ async function start() {
 
             for (const channel of channels) {
               try {
-                await notificationService.sendNotification(channel.type, notificationPayload);
+                await notificationService.sendNotification(channel.type, notificationPayload, channel.config);
                 console.log(`[AlertService] Sent ${channel.type} notification for alert ${alert.id}`);
               } catch (notifError) {
                 console.error(`[AlertService] Failed to send ${channel.type} notification:`, notifError);
@@ -109,7 +172,7 @@ async function start() {
       await prisma.alert.updateMany({
         where: { id, organizationId: orgId },
         data: { 
-          status: 'RESOLVED',
+          status: AlertStatus.RESOLVED,
           resolvedAt: new Date()
         }
       });
@@ -145,6 +208,53 @@ async function start() {
       }
 
       return { success: true, data: { testedChannels: results.length, results } };
+    });
+
+    app.post("/api/v1/trigger-test-alert", async (request, reply) => {
+      const user = request.user as any;
+      const orgId = user?.organizationId || "test-org-123";
+      
+      const testAlert = await prisma.alert.create({
+        data: {
+          traceId: `test-trace-${Date.now()}`,
+          service: "api-gateway",
+          type: "ERROR",
+          message: "Test Error: This is a simulated 500 error for testing notifications",
+          status: AlertStatus.ACTIVE,
+          severity: AlertSeverity.HIGH,
+          organizationId: orgId,
+        }
+      });
+
+      console.log(`[AlertService] Created test alert: ${testAlert.id}`);
+
+      const notificationPayload: NotificationPayload = {
+        title: `🚨 TEST ALERT: api-gateway`,
+        message: "Test Error: This is a simulated 500 error for testing notifications",
+        severity: "HIGH",
+        service: "api-gateway",
+        eventData: {
+          statusCode: 500,
+          durationMs: 1245,
+          traceId: testAlert.traceId,
+          test: true
+        },
+        timestamp: new Date()
+      };
+
+      await notificationService.sendNotification("SLACK", notificationPayload);
+      console.log(`[AlertService] Sent SLACK notification for test alert`);
+      
+      await notificationService.sendNotification("EMAIL", notificationPayload);
+      console.log(`[AlertService] Sent EMAIL notification for test alert`);
+
+      return { 
+        success: true, 
+        data: { 
+          alertId: testAlert.id,
+          message: "Test alert triggered and notifications sent"
+        } 
+      };
     });
 
     const port = Number(process.env.PORT) || 5003;

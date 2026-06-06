@@ -12,7 +12,7 @@ async function jwtAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
   try {
     await request.jwtVerify();
   } catch (err) {
-    reply.status(401).send({ error: "Unauthorized", message: "Invalid or missing token" });
+    return reply.status(401).send({ error: "Unauthorized", message: "Invalid or missing token" });
   }
 }
 

@@ -8,9 +8,26 @@ export const clickhouse = createClient({
 });
 
 export async function initializeClickHouseSchemas() {
+  const database = process.env.CLICKHOUSE_DATABASE || 'galecto';
+
+  // Connect to the default database so we can create the target database
+  const adminClient = createClient({
+    url: process.env.CLICKHOUSE_HOST || 'http://localhost:8123',
+    username: process.env.CLICKHOUSE_USER || 'default',
+    password: process.env.CLICKHOUSE_PASSWORD || '',
+    database: 'default',
+  });
+
+  await adminClient.exec({
+    query: `CREATE DATABASE IF NOT EXISTS ${database}`
+  });
+
+  await adminClient.close();
+
+  // Create the table using the fully qualified name so it always lands in the correct database
   await clickhouse.exec({
     query: `
-      CREATE TABLE IF NOT EXISTS events (
+      CREATE TABLE IF NOT EXISTS ${database}.events (
         tenant_id String,
         trace_id String,
         span_id String,

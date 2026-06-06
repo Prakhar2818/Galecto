@@ -130,4 +130,112 @@ export class AuthClient {
       headers
     );
   }
+
+  async getNotificationChannels(headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/notifications`,
+      "GET",
+      undefined,
+      headers
+    );
+  }
+
+  async createNotificationChannel(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/notifications`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async updateNotificationChannel(id: string, data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/notifications/${id}`,
+      "PUT",
+      data,
+      headers
+    );
+  }
+
+  async deleteNotificationChannel(id: string, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/notifications/${id}`,
+      "DELETE",
+      undefined,
+      headers
+    );
+  }
+
+  async testNotificationChannel(id: string, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/notifications/${id}/test`,
+      "POST",
+      undefined,
+      headers
+    );
+  }
+
+  async triggerTestAlert(headers: any) {
+    return httpRequest(
+      `http://localhost:5003/api/v1/trigger-test-alert`,
+      "POST",
+      undefined,
+      headers
+    );
+  }
+
+  async getRules(headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/platform/rules`,
+      "GET",
+      undefined,
+      headers
+    );
+  }
+
+  async createRule(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/platform/rules`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async updateRule(id: string, data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/platform/rules/${id}`,
+      "PUT",
+      data,
+      headers
+    );
+  }
+
+  async deleteRule(id: string, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/platform/rules/${id}`,
+      "DELETE",
+      undefined,
+      headers
+    );
+  }
+
+  async testRule(id: string, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/platform/rules/${id}/test`,
+      "POST",
+      undefined,
+      headers
+    );
+  }
+
+  async getRuleExecutions(id: string, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/api/v1/platform/rules/${id}/executions`,
+      "GET",
+      undefined,
+      headers
+    );
+  }
 }

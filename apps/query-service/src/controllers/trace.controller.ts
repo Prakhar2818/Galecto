@@ -104,8 +104,13 @@ export class TraceController {
           FROM events
           WHERE 
             tenant_id = {tenantId:String} AND 
-            event_name LIKE '%RESPONSE%' AND 
-            JSONExtractInt(payload, 'statusCode') >= 400
+            (
+              (event_name LIKE '%RESPONSE%' AND status_code >= 400) OR
+              (event_name LIKE '%INGEST_LOG%' AND 
+                (JSONExtractInt(payload, 'payload.attributes.status') >= 400 OR 
+                 JSONExtractInt(payload, 'attributes.status') >= 400 OR
+                 status_code >= 400))
+            )
           ORDER BY timestamp DESC
           LIMIT 20
         `,
@@ -130,9 +135,9 @@ export class TraceController {
           SELECT 
             service_name,
             count() as total_requests,
-            countIf(JSONExtractInt(payload, 'statusCode') >= 400 AND JSONExtractInt(payload, 'statusCode') < 600) as errors,
-            avg(JSONExtractInt(payload, 'durationMs')) as avg_latency,
-            quantile(0.99)(JSONExtractInt(payload, 'durationMs')) as p99_latency
+            countIf(status_code >= 400 AND status_code < 600) as errors,
+            avg(duration_ms) as avg_latency,
+            quantile(0.99)(duration_ms) as p99_latency
           FROM events
           WHERE tenant_id = {tenantId:String} AND event_name LIKE '%RESPONSE%'
           GROUP BY service_name

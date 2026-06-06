@@ -4,7 +4,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import {
   Bell, AlertTriangle, CheckCircle2, Clock,
-  Filter, Settings, RefreshCw, Loader2, X, Plus, Trash2
+  Filter, Settings, RefreshCw, Loader2, X, Plus, Trash2,
+  Mail, MessageSquare, Webhook, Send, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { alertFetch, apiFetch, ApiError } from '@/lib/apiClient';
 
@@ -30,6 +31,17 @@ interface AlertRule {
   services: string[];
 }
 
+interface NotificationChannel {
+  id: string;
+  type: 'EMAIL' | 'SLACK' | 'TEAMS' | 'WEBHOOK';
+  name: string;
+  config: {
+    webhook_url?: string;
+    recipients?: string[];
+  };
+  enabled: boolean;
+}
+
 interface ErrorState {
   message: string;
   code?: string;
@@ -45,11 +57,13 @@ interface Toast {
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [rules, setRules] = useState<AlertRule[]>([]);
+  const [channels, setChannels] = useState<NotificationChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNewRule, setShowNewRule] = useState(false);
+  const [showNewChannel, setShowNewChannel] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [newRule, setNewRule] = useState({
@@ -62,7 +76,15 @@ export default function AlertsPage() {
     severity: 'HIGH',
     services: ''
   });
+  const [newChannel, setNewChannel] = useState({
+    type: 'EMAIL' as 'EMAIL' | 'SLACK' | 'TEAMS' | 'WEBHOOK',
+    name: '',
+    webhook_url: '',
+    recipients: ''
+  });
   const [creatingRule, setCreatingRule] = useState(false);
+  const [creatingChannel, setCreatingChannel] = useState(false);
+  const [testingChannelId, setTestingChannelId] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -122,12 +144,26 @@ export default function AlertsPage() {
     }
   }, []);
 
+  const fetchChannels = useCallback(async () => {
+    try {
+      const data = await apiFetch('/api/v1/notifications', { retries: 2 });
+
+      if (!isMountedRef.current) return;
+
+      if (data.success) {
+        setChannels(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notification channels:', err);
+    }
+  }, []);
+
   const fetchData = useCallback(async (isBackground = false) => {
     if (isBackground) setRefreshing(true);
-    await Promise.all([fetchAlerts(isBackground), fetchRules()]);
+    await Promise.all([fetchAlerts(isBackground), fetchRules(), fetchChannels()]);
     if (!isBackground) setLoading(false);
     setRefreshing(false);
-  }, [fetchAlerts, fetchRules]);
+  }, [fetchAlerts, fetchRules, fetchChannels]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -255,6 +291,134 @@ export default function AlertsPage() {
     } catch (err) {
       if (!isMountedRef.current) return;
       showToast('Failed to delete rule', 'error');
+    }
+  };
+
+  const handleCreateChannel = async () => {
+    if (!newChannel.name.trim()) {
+      showToast('Channel name is required', 'error');
+      return;
+    }
+
+    setCreatingChannel(true);
+    try {
+      const config: any = {};
+      if (newChannel.type === 'SLACK' || newChannel.type === 'TEAMS' || newChannel.type === 'WEBHOOK') {
+        if (!newChannel.webhook_url.trim()) {
+          showToast('Webhook URL is required for ' + newChannel.type, 'error');
+          setCreatingChannel(false);
+          return;
+        }
+        config.webhook_url = newChannel.webhook_url;
+      }
+      if (newChannel.type === 'EMAIL') {
+        if (!newChannel.recipients.trim()) {
+          showToast('Recipients email is required', 'error');
+          setCreatingChannel(false);
+          return;
+        }
+        config.recipients = newChannel.recipients.split(',').map(e => e.trim()).filter(Boolean);
+      }
+
+      const data = await apiFetch('/api/v1/notifications', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: newChannel.type,
+          name: newChannel.name,
+          config,
+          enabled: true
+        }),
+        retries: 1
+      });
+
+      if (!isMountedRef.current) return;
+
+      if (data.success) {
+        showToast('Notification channel created successfully', 'success');
+        setShowNewChannel(false);
+        setNewChannel({ type: 'EMAIL', name: '', webhook_url: '', recipients: '' });
+        fetchChannels();
+      } else {
+        showToast(data.error?.message || 'Failed to create channel', 'error');
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      showToast('Failed to create notification channel', 'error');
+    } finally {
+      if (!isMountedRef.current) return;
+      setCreatingChannel(false);
+    }
+  };
+
+  const handleDeleteChannel = async (channelId: string) => {
+    try {
+      const data = await apiFetch(`/api/v1/notifications/${channelId}`, {
+        method: 'DELETE',
+        retries: 1
+      });
+
+      if (!isMountedRef.current) return;
+
+      if (data.success) {
+        showToast('Channel deleted successfully', 'success');
+        fetchChannels();
+      } else {
+        showToast(data.error?.message || 'Failed to delete channel', 'error');
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      showToast('Failed to delete channel', 'error');
+    }
+  };
+
+  const handleToggleChannel = async (channel: NotificationChannel) => {
+    try {
+      const data = await apiFetch(`/api/v1/notifications/${channel.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          type: channel.type,
+          name: channel.name,
+          config: channel.config,
+          enabled: !channel.enabled
+        }),
+        retries: 1
+      });
+
+      if (!isMountedRef.current) return;
+
+      if (data.success) {
+        showToast(`Channel ${channel.enabled ? 'disabled' : 'enabled'} successfully`, 'success');
+        fetchChannels();
+      } else {
+        showToast(data.error?.message || 'Failed to update channel', 'error');
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      showToast('Failed to update channel', 'error');
+    }
+  };
+
+  const handleTestChannel = async (channelId: string) => {
+    setTestingChannelId(channelId);
+    try {
+      const data = await apiFetch(`/api/v1/notifications/${channelId}/test`, {
+        method: 'POST',
+        retries: 1
+      });
+
+      if (!isMountedRef.current) return;
+
+      if (data.success) {
+        showToast('Test notification sent! Check your ' + channels.find(c => c.id === channelId)?.type + ' channel.', 'success');
+      } else {
+        showToast(data.error?.message || 'Failed to send test notification', 'error');
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      showToast('Failed to send test notification', 'error');
+    } finally {
+      if (!isMountedRef.current) return;
+      setTestingChannelId(null);
     }
   };
 
@@ -437,45 +601,165 @@ export default function AlertsPage() {
       {/* Alert Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black text-slate-900">Alert Settings</h2>
+              <h2 className="text-xl font-black text-slate-900">Notification Channels</h2>
               <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-100 rounded-xl">
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                <div>
-                  <div className="font-bold text-slate-900">Email Notifications</div>
-                  <div className="text-sm text-slate-500">Receive alerts via email</div>
+            <div className="space-y-4 mb-6">
+              {channels.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No notification channels configured</p>
+                  <p className="text-xs mt-1">Add channels to receive alerts</p>
                 </div>
-                <input type="checkbox" defaultChecked className="w-5 h-5 accent-emerald-500" />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                <div>
-                  <div className="font-bold text-slate-900">Slack Notifications</div>
-                  <div className="text-sm text-slate-500">Send alerts to Slack channel</div>
-                </div>
-                <input type="checkbox" className="w-5 h-5 accent-emerald-500" />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                <div>
-                  <div className="font-bold text-slate-900">Auto-Acknowledge</div>
-                  <div className="text-sm text-slate-500">Auto-resolve after 24h</div>
-                </div>
-                <input type="checkbox" defaultChecked className="w-5 h-5 accent-emerald-500" />
-              </div>
+              ) : (
+                channels.map((channel) => (
+                  <div key={channel.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        channel.type === 'EMAIL' ? 'bg-blue-100 text-blue-600' :
+                        channel.type === 'SLACK' ? 'bg-purple-100 text-purple-600' :
+                        channel.type === 'TEAMS' ? 'bg-indigo-100 text-indigo-600' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {channel.type === 'EMAIL' ? <Mail className="w-4 h-4" /> :
+                         channel.type === 'SLACK' ? <MessageSquare className="w-4 h-4" /> :
+                         channel.type === 'TEAMS' ? <MessageSquare className="w-4 h-4" /> :
+                         <Webhook className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900">{channel.name}</div>
+                        <div className="text-xs text-slate-500">
+                          {channel.type === 'EMAIL' && channel.config?.recipients?.join(', ')}
+                          {channel.type !== 'EMAIL' && channel.config?.webhook_url && (
+                            <span className="font-mono truncate max-w-[200px] inline-block">{channel.config.webhook_url}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleTestChannel(channel.id)}
+                        disabled={testingChannelId === channel.id}
+                        className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-emerald-500 transition-colors disabled:opacity-50"
+                        title="Test notification"
+                      >
+                        {testingChannelId === channel.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleToggleChannel(channel)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          channel.enabled ? 'text-emerald-500 hover:bg-emerald-50' : 'text-slate-300 hover:bg-slate-100'
+                        }`}
+                        title={channel.enabled ? 'Disable' : 'Enable'}
+                      >
+                        {channel.enabled ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteChannel(channel.id)}
+                        className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
             <button
-              onClick={() => {
-                showToast('Settings saved', 'success');
-                setShowSettings(false);
-              }}
-              className="w-full mt-6 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600"
+              onClick={() => setShowNewChannel(true)}
+              className="w-full py-3 border-2 border-dashed border-slate-200 text-slate-500 font-bold rounded-xl hover:border-emerald-500 hover:text-emerald-500 transition-colors flex items-center justify-center gap-2"
             >
-              Save Settings
+              <Plus className="w-4 h-4" />
+              Add Notification Channel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Channel Modal */}
+      {showNewChannel && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-slate-900">Add Notification Channel</h2>
+              <button onClick={() => setShowNewChannel(false)} className="p-2 hover:bg-slate-100 rounded-xl">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Channel Name *</label>
+                <input
+                  type="text"
+                  value={newChannel.name}
+                  onChange={(e) => setNewChannel({ ...newChannel, name: e.target.value })}
+                  placeholder="e.g., Production Alerts"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Channel Type</label>
+                <select
+                  value={newChannel.type}
+                  onChange={(e) => setNewChannel({ ...newChannel, type: e.target.value as any })}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="EMAIL">Email</option>
+                  <option value="SLACK">Slack</option>
+                  <option value="TEAMS">Microsoft Teams</option>
+                  <option value="WEBHOOK">Generic Webhook</option>
+                </select>
+              </div>
+              {newChannel.type === 'SLACK' || newChannel.type === 'TEAMS' || newChannel.type === 'WEBHOOK' ? (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Webhook URL *</label>
+                  <input
+                    type="url"
+                    value={newChannel.webhook_url}
+                    onChange={(e) => setNewChannel({ ...newChannel, webhook_url: e.target.value })}
+                    placeholder="https://hooks.slack.com/..."
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Recipients *</label>
+                  <input
+                    type="text"
+                    value={newChannel.recipients}
+                    onChange={(e) => setNewChannel({ ...newChannel, recipients: e.target.value })}
+                    placeholder="email@example.com, another@example.com"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Comma-separated email addresses</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowNewChannel(false)}
+                className="flex-1 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateChannel}
+                disabled={creatingChannel}
+                className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {creatingChannel && <Loader2 className="w-4 h-4 animate-spin" />}
+                Create Channel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -551,10 +835,10 @@ export default function AlertsPage() {
                     onChange={(e) => setNewRule({ ...newRule, operator: e.target.value })}
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
                   >
-                    <option value=">=">>=</option>
-                    <option value=">">&gt;</option>
-                    <option value="<">&lt;</option>
-                    <option value="<=">&lt;=</option>
+                    <option value=">=">{">="}</option>
+                    <option value=">">{">"}</option>
+                    <option value="<">{"<"}</option>
+                    <option value="<=">{"<="}</option>
                   </select>
                 </div>
               </div>

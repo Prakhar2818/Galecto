@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -68,16 +69,23 @@ model ReplayExecution {
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id])
   traceId         String
-  startTime       DateTime @default(now())
-  endTime         DateTime?
-  status          String
-  result          Json?
+  status          ReplayStatus @default(PENDING)
   requestMethod   String?
   requestUrl      String?
   requestHeaders  String?
   requestBody     String?
+  responseStatus  Int?
+  responseBody    String?
   executedAt      DateTime @default(now())
-  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+  errorMessage    String?
+}
+
+enum ReplayStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
 }
 
 model SavedSearch {

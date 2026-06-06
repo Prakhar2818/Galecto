@@ -11,8 +11,7 @@ export async function authMiddleware(
 ) {
   const authHeader = request.headers["authorization"];
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    reply.status(401).send({ error: "Missing or invalid Authorization header" });
-    return;
+    return reply.status(401).send({ error: "Missing or invalid Authorization header" });
   }
 
   const token = authHeader.split(" ")[1];
@@ -41,14 +40,13 @@ export async function authMiddleware(
     }
 
     if (!organizationId) {
-      reply.status(401).send({ error: "Invalid API Key" });
-      return;
+      return reply.status(401).send({ error: "Invalid API Key" });
     }
 
     (request as any).organizationId = organizationId;
     (request as any).authType = "api-key";
   } catch (error) {
     logger.error({ error }, "Failed to validate API key");
-    reply.status(500).send({ error: "Internal Server Error" });
+    return reply.status(500).send({ error: "Internal Server Error" });
   }
 }

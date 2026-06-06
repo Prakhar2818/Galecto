@@ -12,18 +12,18 @@ export class NotificationService {
     this.notifiers.set("EMAIL", new EmailNotifier());
   }
 
-  async sendNotification(channelType: string, payload: NotificationPayload): Promise<void> {
+  async sendNotification(channelType: string, payload: NotificationPayload, channelConfig?: any): Promise<void> {
     const notifier = this.notifiers.get(channelType);
     if (!notifier) {
       console.log(`[NotificationService] Unsupported channel type: ${channelType}`);
       return;
     }
-    await notifier.send(payload);
+    await notifier.send(payload, channelConfig);
   }
 
   async sendToAllChannels(channels: { type: string; config: any }[], payload: NotificationPayload): Promise<void> {
     const promises = channels.map(channel =>
-      this.sendNotification(channel.type, payload).catch(error => {
+      this.sendNotification(channel.type, payload, channel.config).catch(error => {
         console.error(`[NotificationService] Failed to send to channel ${channel.type}:`, error);
       })
     );

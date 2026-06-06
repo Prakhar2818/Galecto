@@ -422,8 +422,8 @@ export default function SloPage() {
         <h4 className="font-bold text-slate-900 mb-2">About SLOs</h4>
         <p className="text-sm text-slate-500 leading-relaxed">
           Service Level Objectives (SLOs) define the acceptable performance thresholds for your services. 
-          Error SLO measures the percentage of successful requests (target: ≥99%). 
-          Latency SLO measures slow requests where P99 > 500ms (target: &lt;5%).
+          Error SLO measures the percentage of successful requests (target: {">="}99%). 
+          Latency SLO measures slow requests where P99 {">"} 500ms (target: {"<"}5%).
         </p>
       </div>
     </DashboardLayout>

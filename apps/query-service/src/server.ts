@@ -5,11 +5,15 @@ import jwt from "@fastify/jwt";
 import { traceRoutesWithPrefix } from "./routes/trace.routes";
 import { logRoutes } from "./routes/log.routes";
 import { ServiceMapController } from "./controllers/service-map.controller";
+import { initializeClickHouseSchemas } from "../../../packages/clickhouse/src/client";
 
 const app = Fastify({ logger: true });
 
 async function start() {
   try {
+    await initializeClickHouseSchemas();
+    app.log.info("Initialized ClickHouse schemas");
+
     await app.register(cors, {
       origin: true,
       credentials: true,

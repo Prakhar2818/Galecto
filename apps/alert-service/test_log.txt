@@ -1,0 +1,24 @@
+
+> alert-service@1.0.0 dev
+> ts-node-dev src/server.ts
+
+[INFO] 12:37:00 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 6.0.3)
+◇ injected env (12) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+{"level":"INFO","timestamp":"2026-06-06T07:07:13.983Z","logger":"kafkajs","message":"[Consumer] Starting","groupId":"alert-service-group"}
+{"level":"INFO","timestamp":"2026-06-06T07:07:17.054Z","logger":"kafkajs","message":"[ConsumerGroup] Consumer has joined the group","groupId":"alert-service-group","memberId":"observability-platform-afb410a4-d33c-4390-a30d-a327b2601270","leaderId":"observability-platform-afb410a4-d33c-4390-a30d-a327b2601270","isLeader":true,"memberAssignment":{"events":[0]},"groupProtocol":"RoundRobinAssigner","duration":3066}
+{"level":30,"time":1780729637094,"pid":33368,"hostname":"Prakhar","msg":"Server listening at http://127.0.0.1:5003"}
+{"level":30,"time":1780729637095,"pid":33368,"hostname":"Prakhar","msg":"Server listening at http://172.25.0.1:5003"}
+{"level":30,"time":1780729637095,"pid":33368,"hostname":"Prakhar","msg":"Server listening at http://192.168.56.1:5003"}
+{"level":30,"time":1780729637095,"pid":33368,"hostname":"Prakhar","msg":"Server listening at http://192.168.29.240:5003"}
+{"level":30,"time":1780729637095,"pid":33368,"hostname":"Prakhar","msg":"Alert service listening on port 5003"}
+[INFO] 12:39:37 Restarting: D:\Track 1\apps\alert-service\src\notifiers\EmailNotifier.ts has been modified
+◇ injected env (12) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+{"level":"INFO","timestamp":"2026-06-06T07:09:38.036Z","logger":"kafkajs","message":"[Consumer] Starting","groupId":"alert-service-group"}
+{"level":"INFO","timestamp":"2026-06-06T07:10:02.465Z","logger":"kafkajs","message":"[ConsumerGroup] Consumer has joined the group","groupId":"alert-service-group","memberId":"observability-platform-9b486c00-6ac1-4e17-97d0-aae2d7c9b50a","leaderId":"observability-platform-9b486c00-6ac1-4e17-97d0-aae2d7c9b50a","isLeader":true,"memberAssignment":{"events":[0]},"groupProtocol":"RoundRobinAssigner","duration":24427}
+{"level":30,"time":1780729802560,"pid":24928,"hostname":"Prakhar","msg":"Server listening at http://127.0.0.1:5003"}
+{"level":30,"time":1780729802561,"pid":24928,"hostname":"Prakhar","msg":"Server listening at http://172.25.0.1:5003"}
+{"level":30,"time":1780729802561,"pid":24928,"hostname":"Prakhar","msg":"Server listening at http://192.168.56.1:5003"}
+{"level":30,"time":1780729802561,"pid":24928,"hostname":"Prakhar","msg":"Server listening at http://192.168.29.240:5003"}
+{"level":30,"time":1780729802561,"pid":24928,"hostname":"Prakhar","msg":"Alert service listening on port 5003"}
+
+D:\Track 1\apps\alert-service>

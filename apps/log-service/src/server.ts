@@ -18,6 +18,28 @@ async function start() {
       app.log.info({ traceId: event.traceId, type: event.type }, "Received event");
       
       try {
+        // Extract status_code from nested SDK payloads (e.g., INGEST_LOG events)
+        let statusCode = 0;
+        if (event.payload?.statusCode) {
+          statusCode = Number(event.payload.statusCode);
+        } else if (event.payload?.payload?.attributes?.status) {
+          statusCode = Number(event.payload.payload.attributes.status);
+        } else if (event.payload?.attributes?.status) {
+          statusCode = Number(event.payload.attributes.status);
+        } else if (event.payload?.status) {
+          statusCode = Number(event.payload.status);
+        }
+
+        // Extract duration_ms from nested SDK payloads
+        let durationMs = 0;
+        if (event.payload?.durationMs) {
+          durationMs = Number(event.payload.durationMs);
+        } else if (event.payload?.payload?.duration) {
+          durationMs = Number(event.payload.payload.duration);
+        } else if (event.payload?.duration) {
+          durationMs = Number(event.payload.duration);
+        }
+
         await clickhouse.insert({
           table: 'events',
           values: [
@@ -30,13 +52,13 @@ async function start() {
               service_name: event.service,
               timestamp: event.timestamp,
               payload: JSON.stringify(event.payload),
-              duration_ms: event.payload?.durationMs || 0,
-              status_code: event.payload?.statusCode || 0,
+              duration_ms: durationMs,
+              status_code: statusCode,
             }
           ],
           format: 'JSONEachRow',
         });
-        app.log.info({ traceId: event.traceId }, "Saved event to ClickHouse");
+        app.log.info({ traceId: event.traceId, statusCode, durationMs }, "Saved event to ClickHouse");
       } catch (err) {
         app.log.error({ err, traceId: event.traceId }, "Failed to save event to ClickHouse");
       }

@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, AlertStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -49,7 +49,7 @@ export class IncidentController {
     await prisma.alert.updateMany({
       where: { id: incidentId, organizationId },
       data: { 
-        status: 'ACKNOWLEDGED',
+        status: AlertStatus.ACKNOWLEDGED,
         assignedTo,
         slaDueAt
       }
@@ -90,7 +90,7 @@ export class IncidentController {
     await prisma.alert.updateMany({
       where: { id: incidentId, organizationId },
       data: { 
-        status: 'RESOLVED',
+        status: AlertStatus.RESOLVED,
         resolvedAt: new Date()
       }
     });

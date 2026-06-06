@@ -15,8 +15,8 @@ export class ServiceMapController {
             service_name as source,
             JSONExtractString(payload, 'downstream_service') as target,
             count() as callCount,
-            avg(JSONExtractInt(payload, 'durationMs')) as avgDuration,
-            countIf(JSONExtractInt(payload, 'statusCode') >= 400) as errorCount
+            avg(duration_ms) as avgDuration,
+            countIf(status_code >= 400) as errorCount
           FROM events
           WHERE 
             tenant_id = {tenantId:String} AND 
