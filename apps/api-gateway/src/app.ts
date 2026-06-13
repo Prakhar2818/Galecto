@@ -25,6 +25,25 @@ export function buildApp() {
     secret: process.env.JWT_SECRET || "secret",
   });
 
+  // Handle empty JSON bodies gracefully (e.g., replay endpoint)
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    function (req, body, done) {
+      if (body === "") {
+        done(null, {});
+        return;
+      }
+      try {
+        const json = JSON.parse(body as string);
+        done(null, json);
+      } catch (err: any) {
+        err.statusCode = 400;
+        done(err, undefined);
+      }
+    }
+  );
+
   app.addHook("onRequest", requestContextMiddleware);
   app.addHook("preHandler", loggingMiddleware);
   app.addHook("onResponse", responseLoggingMiddleware);

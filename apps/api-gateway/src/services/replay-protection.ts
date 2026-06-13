@@ -19,6 +19,8 @@ export class ReplayProtectionService {
     'x-trace-id',
     'x-correlation-id',
     'accept-language',
+    'host',
+    'authorization',
   ];
 
   private allowedEnvPatterns = [
@@ -26,6 +28,10 @@ export class ReplayProtectionService {
     '127.0.0.1',
     'staging.',
     '.internal',
+    'service',      // matches auth-service, api-service, log-service, etc.
+    'gateway',      // matches api-gateway, etc.
+    'app',          // matches app-service, etc.
+    'backend',      // matches backend, etc.
   ];
 
   maskPii(payload: any): any {
@@ -58,13 +64,23 @@ export class ReplayProtectionService {
     return filtered;
   }
 
-  validateTargetUrl(url: string): { valid: boolean; error?: string } {
+  validateTargetUrl(url: string): { valid: boolean; error?: string; normalizedUrl?: string } {
     if (!url) {
       return { valid: false, error: 'URL is required' };
     }
 
+    let urlToValidate = url;
+    // Handle relative paths: /api/v1/users -> http://localhost:3001/api/v1/users
+    if (urlToValidate.startsWith('/')) {
+      urlToValidate = 'http://localhost:' + (process.env.PORT || 3001) + urlToValidate;
+    }
+    // Prepend protocol if missing so partial URLs like localhost:3000/api work
+    else if (!urlToValidate.startsWith('http://') && !urlToValidate.startsWith('https://')) {
+      urlToValidate = 'http://' + urlToValidate;
+    }
+
     try {
-      const urlObj = new URL(url);
+      const urlObj = new URL(urlToValidate);
       
       // Only allow http/https
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
@@ -78,10 +94,11 @@ export class ReplayProtectionService {
       );
 
       if (!isAllowed) {
-        return { valid: false, error: 'Target URL must be on allowed environments (localhost, staging, internal)' };
+        console.log(`[Replay] Rejected URL: original="${url}" normalized="${urlToValidate}" hostname="${hostname}"`);
+        return { valid: false, error: `Target URL hostname "${hostname}" is not allowed. Allowed: localhost, 127.0.0.1, staging.*, *.internal, *service*, *gateway*, *app*, *backend*, or relative paths` };
       }
 
-      return { valid: true };
+      return { valid: true, normalizedUrl: urlToValidate };
     } catch {
       return { valid: false, error: 'Invalid URL format' };
     }

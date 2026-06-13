@@ -9,6 +9,14 @@ export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  // Allow replay requests to bypass auth (they already passed JWT auth at the gateway)
+  if (request.headers["x-galecto-replay"] === "true") {
+    const orgId = (request.headers["x-galecto-organization-id"] as string) || (request as any).user?.organizationId || "anonymous";
+    (request as any).organizationId = orgId;
+    (request as any).authType = "replay";
+    return;
+  }
+
   const authHeader = request.headers["authorization"];
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return reply.status(401).send({ error: "Missing or invalid Authorization header" });

@@ -22,12 +22,15 @@ export class ReplayController {
     try {
       const result = await clickhouse.query({
         query: `
-          SELECT payload 
+          SELECT payload, service_name 
           FROM events 
-          WHERE trace_id = {traceId: String} AND event_name LIKE 'API_REQUEST%'
+          WHERE trace_id = {traceId: String} 
+            AND (tenant_id = {tenantId: String} OR tenant_id = 'anonymous')
+            AND (event_name LIKE 'API_REQUEST%' OR event_name LIKE 'API_RESPONSE%')
+          ORDER BY timestamp ASC
           LIMIT 1
         `,
-        query_params: { traceId },
+        query_params: { traceId, tenantId: organizationId },
         format: 'JSONEachRow',
       });
 
@@ -37,12 +40,36 @@ export class ReplayController {
       }
 
       const originalPayload = JSON.parse(row[0].payload);
+      const originalService = row[0].service_name || 'api-gateway';
       let { method, url, headers, body } = originalPayload;
+
+      // Service URL mapping for replay
+      const serviceUrlMap: Record<string, string> = {
+        'api-gateway': `http://localhost:${process.env.PORT || 3001}`,
+        'auth-service': 'http://localhost:4000',
+        'log-service': 'http://localhost:4001',
+        'query-service': 'http://localhost:4002',
+        'alert-service': 'http://localhost:5003',
+        'ngo-backend': 'http://localhost:3000',
+        'ngo-frontend': 'http://localhost:3000',
+      };
+
+      // If URL is just a path, reconstruct full URL using service base URL
+      if (url && url.startsWith('/')) {
+        const baseUrl = serviceUrlMap[originalService] || `http://localhost:${process.env.PORT || 3001}`;
+        url = `${baseUrl}${url}`;
+      } else if (url && (url.startsWith('http://localhost/') || url.startsWith('http://localhost:80/'))) {
+        // Fix URLs that have localhost without the correct port
+        const baseUrl = serviceUrlMap[originalService] || `http://localhost:${process.env.PORT || 3001}`;
+        url = url.replace(/^http:\/\/localhost(:80)?\//, `${baseUrl}/`);
+      }
 
       const urlValidation = replayProtection.validateTargetUrl(url);
       if (!urlValidation.valid) {
         return reply.status(400).send({ error: urlValidation.error });
       }
+      // Use normalized URL in case the stored URL was missing protocol
+      url = urlValidation.normalizedUrl || url;
 
       headers = replayProtection.filterHeaders(headers || {});
       
@@ -86,21 +113,45 @@ export class ReplayController {
       });
 
       try {
+        const outgoingHeaders: any = {
+          ...headers,
+          'x-trace-id': replayTraceId,
+          'x-original-trace-id': traceId,
+          'x-galecto-replay': 'true',
+          'x-galecto-organization-id': organizationId,
+        };
+
+        // Strip content-type and content-length if no body is being sent
+        // to prevent "Body cannot be empty" errors on the target service
+        if (!shouldSendBody || processedBody === null) {
+          delete outgoingHeaders['content-type'];
+          delete outgoingHeaders['content-length'];
+        }
+
         const axiosConfig: any = {
           method,
           url: url,
-          headers: {
-            ...headers,
-            'x-trace-id': replayTraceId,
-            'x-original-trace-id': traceId,
-            'x-galecto-replay': 'true'
-          },
+          headers: outgoingHeaders,
           validateStatus: () => true
         };
 
         // Only attach data if body is present and method supports it
         if (shouldSendBody && processedBody !== null) {
           axiosConfig.data = processedBody;
+        }
+
+        logger.info({ 
+          replayId: replayExecution.id,
+          method, 
+          url, 
+          hasBody: !!processedBody,
+          headers: Object.keys(outgoingHeaders),
+          message: "Replaying request" 
+        });
+
+        // Validate URL is not empty before axios call
+        if (!url) {
+          throw new Error('URL is empty after normalization');
         }
 
         const response = await axios(axiosConfig);
@@ -125,18 +176,33 @@ export class ReplayController {
           statusCode: response.status 
         });
       } catch (axiosError: any) {
+        const errorDetails = {
+          message: axiosError?.message || 'Unknown error',
+          code: axiosError?.code || 'NO_CODE',
+          status: axiosError?.response?.status,
+          url: axiosError?.config?.url || url,
+          method: axiosError?.config?.method || method,
+          stack: axiosError?.stack,
+        };
+
+        logger.error({ 
+          replayId: replayExecution.id,
+          error: errorDetails,
+          message: "Replay request failed" 
+        });
+
         await prisma.replayExecution.update({
           where: { id: replayExecution.id },
           data: {
             status: 'FAILED',
-            errorMessage: axiosError.message,
+            errorMessage: JSON.stringify(errorDetails),
             completedAt: new Date()
           }
         });
 
         return reply.status(500).send({ 
           error: "Failed to re-fire request", 
-          details: axiosError.message 
+          details: errorDetails
         });
       }
 
