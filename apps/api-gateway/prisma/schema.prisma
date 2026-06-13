@@ -23,88 +23,11 @@ model Organization {
   dashboards    Dashboard[]
   deployMarkers DeployMarker[]
   sloDefinitions SloDefinition[]
+  sloTargets    SloTarget[]
   apiKeyAuditLogs ApiKeyAuditLog[]
-  apiKeys        ApiKey[]
-}
-
-model User {
-  id             String       @id @default(uuid())
-  email          String       @unique
-  password       String
-  role           Role         @default(OBSERVER)
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-}
-
-model Project {
-  id             String       @id @default(uuid())
-  name           String
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  apiKeys        ApiKey[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-}
-
-model Alert {
-  id            String       @id @default(uuid())
-  traceId       String
-  service       String
-  type          String
-  message       String
-  status        String       @default("ACTIVE")
-  severity      String       @default("MEDIUM")
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  assignedTo    String?
-  slaDueAt      DateTime?
-  createdAt     DateTime     @default(now())
-  resolvedAt    DateTime?
-}
-
-model ReplayExecution {
-  id              String   @id @default(uuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
-  traceId         String
-  status          ReplayStatus @default(PENDING)
-  requestMethod   String?
-  requestUrl      String?
-  requestHeaders  String?
-  requestBody     String?
-  responseStatus  Int?
-  responseBody    String?
-  executedAt      DateTime @default(now())
-  completedAt     DateTime?
-  errorMessage    String?
-}
-
-enum ReplayStatus {
-  PENDING
-  RUNNING
-  COMPLETED
-  FAILED
-}
-
-model SavedSearch {
-  id             String       @id @default(uuid())
-  name           String
-  query          String
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime     @default(now())
-}
-
-model Dashboard {
-  id             String       @id @default(uuid())
-  name           String
-  config         Json
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  alertRules      AlertRule[]
+  invitations   Invitation[]
+  favorites     Favorite[]
 }
 
 model DeployMarker {
@@ -125,45 +48,100 @@ model SloDefinition {
   organization    Organization @relation(fields: [organizationId], references: [id])
   name            String
   service         String
-  sloType         String
-  threshold       Float
-  window          String
+  indicatorType   String
+  targetPercent   Float
+  windowDays      Int      @default(7)
   createdAt       DateTime @default(now())
 }
 
-model NotificationChannel {
+model SloTarget {
+  id                  String   @id @default(uuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  serviceName         String
+  errorRateThreshold  Float    @default(1.0)
+  latencyThreshold    Int      @default(500)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  @@unique([organizationId, serviceName])
+  @@index([organizationId])
+}
+
+model ApiKeyAuditLog {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  apiKeyId        String
+  action          String
+  metadata        Json?
+  performedAt     DateTime @default(now())
+}
+
+model User {
   id             String       @id @default(uuid())
-  name           String
-  type           String
-  config         Json
+  email          String       @unique
+  password       String
+  role           Role         @default(OBSERVER)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  twoFactorEnabled   Boolean  @default(false)
+  twoFactorSecret  String?
+  twoFactorMethod  String?
 }
 
-model ApiKey {
+model Invitation {
   id             String       @id @default(uuid())
-  key            String       @unique
-  name           String
-  role           String
+  email          String
+  role           Role         @default(DEVELOPER)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  projectId      String?
-  project        Project?     @relation(fields: [projectId], references: [id])
-  expiresAt      DateTime?
-  lastUsedAt     DateTime?
+  token          String       @unique
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  acceptedAt     DateTime?
+
+  @@unique([email, organizationId])
+  @@index([organizationId, status])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+model Project {
+  id             String       @id @default(uuid())
+  name           String
+  environment    ProjectEnvironment @default(PRODUCTION)
+  region         String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  apiKeys        ApiKey[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
 
-model ApiKeyAuditLog {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  apiKeyId       String
-  action         String
-  metadata       Json?
-  performedAt    DateTime     @default(now())
+enum ProjectEnvironment {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+}
+
+model ApiKey {
+  id            String    @id @default(uuid())
+  key           String    @unique
+  name          String
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id])
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  lastUsedAt    DateTime?
+  scope         Json      @default("{\"ingest\":true,\"read\":true,\"write\":true}")
 }
 
 enum Role {
@@ -171,4 +149,164 @@ enum Role {
   ADMIN
   DEVELOPER
   OBSERVER
+}
+
+model Alert {
+  id            String       @id @default(uuid())
+  traceId       String
+  service       String
+  type          String
+  message       String
+  status        AlertStatus  @default(ACTIVE)
+  severity      AlertSeverity @default(MEDIUM)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  assignedTo    String?
+  slaDueAt      DateTime?
+  createdAt     DateTime     @default(now())
+  resolvedAt    DateTime?
+  notes         IncidentNote[]
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum AlertSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+model IncidentNote {
+  id        String   @id @default(uuid())
+  alertId   String
+  alert     Alert    @relation(fields: [alertId], references: [id])
+  content   String
+  authorId  String
+  createdAt DateTime @default(now())
+}
+
+model ReplayExecution {
+  id              String   @id @default(uuid())
+  traceId         String
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  status          ReplayStatus @default(PENDING)
+  requestMethod   String?
+  requestUrl      String?
+  requestHeaders  String?
+  requestBody     String?
+  responseStatus  Int?
+  responseBody    String?
+  executedAt      DateTime @default(now())
+  completedAt     DateTime?
+  errorMessage    String?
+}
+
+enum ReplayStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model NotificationChannel {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  type            NotificationType
+  name            String
+  config          Json
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}
+
+enum NotificationType {
+  EMAIL
+  SLACK
+  TEAMS
+  WEBHOOK
+  PAGERDUTY
+}
+
+model SavedSearch {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  query           String
+  filters         Json?
+  createdBy       String
+  createdAt       DateTime @default(now())
+}
+
+model Dashboard {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  config          Json
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AlertRule {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  enabled         Boolean  @default(true)
+  conditionType   String
+  conditionValue  Json
+  severity        String
+  cooldownMinutes Int      @default(5)
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  services        String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  notifications   AlertNotification[]
+  executions      AlertExecution[]
+  @@index([organizationId, enabled])
+  @@index([severity])
+}
+
+model AlertNotification {
+  id          String   @id @default(uuid())
+  alertRuleId String
+  alertRule   AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  channelType String
+  channelId   String
+  createdAt   DateTime @default(now())
+  @@index([alertRuleId])
+}
+
+model AlertExecution {
+  id          String   @id @default(uuid())
+  alertRuleId String
+  alertRule   AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  triggeredAt DateTime @default(now())
+  status      String
+  eventData   Json
+  @@index([alertRuleId, triggeredAt])
+}
+
+model Favorite {
+  id             String       @id @default(uuid())
+  userId         String
+  itemType       String
+  itemId         String
+  itemName       String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, itemType, itemId])
+  @@index([userId])
+  @@index([organizationId])
 }

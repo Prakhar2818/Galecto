@@ -25,9 +25,15 @@ export default function SettingsPage() {
   const [orgId, setOrgId] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   
-  // Security tab state
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [sessionTimeout, setSessionTimeout] = useState('30');
+   // Security tab state
+   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+   const [twoFactorMethod, setTwoFactorMethod] = useState<'email' | 'authenticator'>('email');
+   const [show2FASetup, setShow2FASetup] = useState(false);
+   const [setup2FAStep, setSetup2FAStep] = useState<'select' | 'verify' | 'success'>('select');
+   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+   const [verificationCode, setVerificationCode] = useState('');
+   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+   const [sessionTimeout, setSessionTimeout] = useState('30');
   
   // Team tab state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -99,6 +105,83 @@ export default function SettingsPage() {
     fetchProjects(false);
     fetchRetentionSettings();
   }, []);
+
+  // Setup 2FA
+  const handleSetup2FA = async (method: 'email' | 'authenticator') => {
+    setTwoFactorLoading(true);
+    try {
+      const res = await apiFetch('/api/v1/auth/2fa/setup', {
+        method: 'POST',
+        body: JSON.stringify({ method })
+      });
+      if (res.success) {
+        setTwoFactorMethod(method);
+        if (method === 'authenticator' && res.qrCodeUrl) {
+          setQrCodeUrl(res.qrCodeUrl);
+        }
+        setSetup2FAStep('verify');
+      } else {
+        showToast(res.error || 'Failed to setup 2FA', 'error');
+      }
+    } catch (err) {
+      showToast('Failed to setup 2FA', 'error');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      showToast('Please enter a 6-digit code', 'error');
+      return;
+    }
+    setTwoFactorLoading(true);
+    try {
+      const res = await apiFetch('/api/v1/auth/2fa/verify-enable', {
+        method: 'POST',
+        body: JSON.stringify({ code: verificationCode })
+      });
+      if (res.success) {
+        setTwoFactorEnabled(true);
+        setSetup2FAStep('success');
+        showToast('2FA enabled successfully!', 'success');
+        setTimeout(() => {
+          setShow2FASetup(false);
+          setSetup2FAStep('select');
+          setVerificationCode('');
+          setQrCodeUrl(null);
+        }, 2000);
+      } else {
+        showToast(res.error || 'Invalid verification code', 'error');
+      }
+    } catch (err) {
+      showToast('Failed to verify 2FA code', 'error');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    const password = prompt('Please enter your password to disable 2FA:');
+    if (!password) return;
+    setTwoFactorLoading(true);
+    try {
+      const res = await apiFetch('/api/v1/auth/2fa/disable', {
+        method: 'POST',
+        body: JSON.stringify({ password })
+      });
+      if (res.success) {
+        setTwoFactorEnabled(false);
+        showToast('2FA disabled successfully', 'success');
+      } else {
+        showToast(res.error || 'Failed to disable 2FA', 'error');
+      }
+    } catch (err) {
+      showToast('Failed to disable 2FA', 'error');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
 
   // Save organization name
   const handleSaveOrgSettings = async () => {
@@ -415,29 +498,48 @@ export default function SettingsPage() {
                   </button>
                </div>
                
-               <div className="space-y-3">
-                  {users.length === 0 ? (
-                     <div className="py-8 text-center text-slate-400">No team members found</div>
-                  ) : users.map((u) => (
-                     <div key={u.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100">
-                        <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                              <User size={18} className="text-emerald-600" />
-                           </div>
-                           <div>
-                              <div className="font-bold text-slate-900">{u.email}</div>
-                              <div className="text-xs text-slate-500">{u.role}</div>
-                           </div>
-                        </div>
-                        <button 
-                           onClick={() => handleRemoveUser(u.id)}
-                           className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                        >
-                           <Trash2 size={16} />
-                        </button>
-                     </div>
-                  ))}
-               </div>
+                <div className="space-y-3">
+                   {users.length === 0 ? (
+                      <div className="py-8 text-center text-slate-400">No team members found</div>
+                   ) : users.map((u) => (
+                      <div key={u.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100">
+                         <div className="flex items-center gap-4">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              u.memberStatus === 'PENDING' ? 'bg-orange-100' : 'bg-emerald-100'
+                            }`}>
+                               <User size={18} className={u.memberStatus === 'PENDING' ? 'text-orange-600' : 'text-emerald-600'} />
+                            </div>
+                            <div>
+                               <div className="flex items-center gap-2">
+                                  <div className="font-bold text-slate-900">{u.email}</div>
+                                  {u.memberStatus === 'PENDING' && (
+                                    <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-[9px] font-black uppercase rounded-full">
+                                      Pending
+                                    </span>
+                                  )}
+                                  {u.memberStatus === 'ACTIVE' && (
+                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 text-[9px] font-black uppercase rounded-full">
+                                      Active
+                                    </span>
+                                  )}
+                               </div>
+                               <div className="text-xs text-slate-500">{u.role}</div>
+                               {u.memberStatus === 'PENDING' && u.expiresAt && (
+                                 <div className="text-[10px] text-slate-400">
+                                   Expires {new Date(u.expiresAt).toLocaleDateString()}
+                                 </div>
+                               )}
+                            </div>
+                         </div>
+                         <button 
+                            onClick={() => handleRemoveUser(u.id)}
+                            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                         >
+                            <Trash2 size={16} />
+                         </button>
+                      </div>
+                   ))}
+                </div>
             </div>
             </div>
             )}
@@ -480,48 +582,152 @@ export default function SettingsPage() {
             </div>
            )}
 
-           {/* Security Tab */}
-           {activeTab === 'security' && (
-           <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-              <h3 className="text-xl font-black font-sora mb-2">Security & Access</h3>
-              <p className="text-sm text-slate-500 mb-8 font-medium">Manage security settings and access controls.</p>
-              <div className="space-y-4">
-                 <div className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl">
-                    <div>
-                       <div className="font-bold text-slate-900">Two-Factor Authentication</div>
-                       <div className="text-sm text-slate-500">Add an extra layer of security</div>
+            {/* Security Tab */}
+            {activeTab === 'security' && (
+            <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+               <h3 className="text-xl font-black font-sora mb-2">Security & Access</h3>
+               <p className="text-sm text-slate-500 mb-8 font-medium">Manage security settings and access controls.</p>
+               <div className="space-y-4">
+                  <div className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl">
+                     <div>
+                        <div className="font-bold text-slate-900">Two-Factor Authentication</div>
+                        <div className="text-sm text-slate-500">Add an extra layer of security</div>
+                        {twoFactorEnabled && (
+                          <div className="text-xs text-emerald-600 font-medium mt-1">
+                            Currently enabled with {twoFactorMethod === 'email' ? 'Email OTP' : 'Authenticator App'}
+                          </div>
+                        )}
+                     </div>
+                     <button 
+                        onClick={() => {
+                          if (twoFactorEnabled) {
+                            handleDisable2FA();
+                          } else {
+                            setShow2FASetup(true);
+                          }
+                        }}
+                        disabled={twoFactorLoading}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                     >
+                        {twoFactorLoading ? 'Processing...' : (twoFactorEnabled ? 'Enabled' : 'Enable')}
+                     </button>
+                  </div>
+                  
+                  {/* 2FA Setup Modal */}
+                  {show2FASetup && (
+                    <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
+                      {setup2FAStep === 'select' && (
+                        <div className="space-y-4">
+                          <h4 className="font-bold text-slate-900">Choose 2FA Method</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            <button
+                              onClick={() => handleSetup2FA('email')}
+                              disabled={twoFactorLoading}
+                              className="p-4 bg-white rounded-xl border border-slate-200 hover:border-emerald-500 transition-all text-left"
+                            >
+                              <div className="font-bold text-slate-900 mb-1">Email OTP</div>
+                              <div className="text-xs text-slate-500">Receive codes via email</div>
+                            </button>
+                            <button
+                              onClick={() => handleSetup2FA('authenticator')}
+                              disabled={twoFactorLoading}
+                              className="p-4 bg-white rounded-xl border border-slate-200 hover:border-emerald-500 transition-all text-left"
+                            >
+                              <div className="font-bold text-slate-900 mb-1">Authenticator App</div>
+                              <div className="text-xs text-slate-500">Use Google Authenticator or similar</div>
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => setShow2FASetup(false)}
+                            className="text-sm text-slate-500 hover:text-slate-700 font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                      
+                      {setup2FAStep === 'verify' && (
+                        <div className="space-y-4">
+                          <h4 className="font-bold text-slate-900">Verify Setup</h4>
+                          
+                          {twoFactorMethod === 'authenticator' && qrCodeUrl && (
+                            <div className="text-center">
+                              <p className="text-sm text-slate-600 mb-3">Scan this QR code with your authenticator app:</p>
+                              <img src={qrCodeUrl} alt="2FA QR Code" className="mx-auto rounded-xl border border-slate-200" />
+                            </div>
+                          )}
+                          
+                          {twoFactorMethod === 'email' && (
+                            <p className="text-sm text-slate-600">A verification code has been sent to your email. Enter it below:</p>
+                          )}
+                          
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Enter 6-digit code</label>
+                            <input
+                              type="text"
+                              value={verificationCode}
+                              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              placeholder="000000"
+                              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-center tracking-[0.5em] font-mono focus:outline-none focus:border-emerald-500"
+                              maxLength={6}
+                            />
+                          </div>
+                          
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => {
+                                setShow2FASetup(false);
+                                setSetup2FAStep('select');
+                                setVerificationCode('');
+                              }}
+                              className="flex-1 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleVerify2FA}
+                              disabled={twoFactorLoading || verificationCode.length !== 6}
+                              className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 disabled:opacity-50"
+                            >
+                              {twoFactorLoading ? 'Verifying...' : 'Verify & Enable'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {setup2FAStep === 'success' && (
+                        <div className="text-center py-4">
+                          <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                          </div>
+                          <h4 className="font-bold text-slate-900 mb-1">2FA Enabled!</h4>
+                          <p className="text-sm text-slate-500">Your account is now more secure.</p>
+                        </div>
+                      )}
                     </div>
-                    <button 
-                       onClick={() => {
-                         setTwoFactorEnabled(!twoFactorEnabled);
-                         showToast(twoFactorEnabled ? '2FA disabled' : '2FA enabled - Scan QR code', 'success');
-                       }}
-                       className={`px-4 py-2 rounded-xl text-sm font-bold ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >
-                       {twoFactorEnabled ? 'Enabled' : 'Enable'}
-                    </button>
-                 </div>
-                 <div className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl">
-                    <div>
-                       <div className="font-bold text-slate-900">Session Timeout</div>
-                       <div className="text-sm text-slate-500">Auto logout after inactivity</div>
-                    </div>
-                    <select 
-                       value={sessionTimeout}
-                       onChange={(e) => {
-                         setSessionTimeout(e.target.value);
-                         showToast('Session timeout updated', 'success');
-                       }}
-                       className="px-4 py-2 border border-slate-200 rounded-xl text-sm"
-                    >
-                       <option value="30">30 minutes</option>
-                       <option value="60">1 hour</option>
-                       <option value="240">4 hours</option>
-                    </select>
-                 </div>
-              </div>
-           </div>
-           )}
+                  )}
+                  
+                  <div className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl">
+                     <div>
+                        <div className="font-bold text-slate-900">Session Timeout</div>
+                        <div className="text-sm text-slate-500">Auto logout after inactivity</div>
+                     </div>
+                     <select 
+                        value={sessionTimeout}
+                        onChange={(e) => {
+                          setSessionTimeout(e.target.value);
+                          showToast('Session timeout updated', 'success');
+                        }}
+                        className="px-4 py-2 border border-slate-200 rounded-xl text-sm"
+                     >
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="240">4 hours</option>
+                     </select>
+                  </div>
+               </div>
+            </div>
+            )}
 
            {/* Data Retention Tab */}
            {activeTab === 'retention' && (

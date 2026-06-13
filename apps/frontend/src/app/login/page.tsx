@@ -10,8 +10,11 @@ import { apiFetch } from '@/lib/apiClient';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [twoFactorMethod, setTwoFactorMethod] = useState<string | null>(null);
   const { login, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -27,18 +30,50 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      const payload: any = { email, password };
+      if (requires2FA && otpCode) {
+        payload.otpCode = otpCode;
+      }
+      
       const data = await apiFetch('/api/v1/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
 
       if (data.success && data.token && data.user) {
         login(data.token, data.user);
+      } else if (data.requires2FA) {
+        setRequires2FA(true);
+        setTwoFactorMethod(data.twoFactorMethod);
+        setError(null);
       } else {
-        setError(data.error?.message || 'Invalid email or password. Please try again.');
+        setError(data.error?.message || data.message || 'Invalid email or password. Please try again.');
       }
     } catch (err) {
       setError('Unable to connect. Please check your network connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleVerifyEmailOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const data = await apiFetch('/api/v1/auth/verify-email-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email, code: otpCode }),
+      });
+      
+      if (data.success && data.token && data.user) {
+        login(data.token, data.user);
+      } else {
+        setError(data.error?.message || 'Invalid verification code');
+      }
+    } catch (err) {
+      setError('Unable to verify code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -109,39 +144,86 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <label className="text-sm font-black text-slate-400 uppercase tracking-widest px-2">Work Email</label>
-              <input 
-                type="email" 
-                placeholder="name@company.com" 
-                className="input-soft" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center px-2">
-                <label className="text-sm font-black text-slate-400 uppercase tracking-widest">Password</label>
-                <Link href="/forgot" className="text-xs font-bold text-emerald-600">Forgot?</Link>
+          <form className="space-y-6" onSubmit={requires2FA ? handleVerifyEmailOTP : handleSubmit}>
+            {!requires2FA && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-black text-slate-400 uppercase tracking-widest px-2">Work Email</label>
+                  <input 
+                    type="email" 
+                    placeholder="name@company.com" 
+                    className="input-soft" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center px-2">
+                    <label className="text-sm font-black text-slate-400 uppercase tracking-widest">Password</label>
+                    <Link href="/forgot" className="text-xs font-bold text-emerald-600">Forgot?</Link>
+                  </div>
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    className="input-soft" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </>
+            )}
+            
+            {requires2FA && (
+              <div className="space-y-2">
+                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl mb-4">
+                  <p className="text-sm text-emerald-700 font-medium">
+                    Two-factor authentication is enabled on your account.
+                  </p>
+                  <p className="text-xs text-emerald-600 mt-1">
+                    Method: {twoFactorMethod === 'email' ? 'Email OTP' : 'Authenticator App'}
+                  </p>
+                </div>
+                <label className="text-sm font-black text-slate-400 uppercase tracking-widest px-2">
+                  {twoFactorMethod === 'email' ? 'Email Verification Code' : 'Authenticator Code'}
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="000000" 
+                  className="input-soft text-center tracking-[0.5em] font-mono" 
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  maxLength={6}
+                  required
+                />
+                <p className="text-xs text-slate-400 px-2">
+                  {twoFactorMethod === 'email' ? 'Enter the 6-digit code sent to your email.' : 'Enter the 6-digit code from your authenticator app.'}
+                </p>
               </div>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                className="input-soft" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            )}
+            
             <button 
               type="submit"
               disabled={loading}
               className="btn-primary w-full text-center block py-4 text-lg flex items-center justify-center gap-3"
             >
-              {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
+              {loading ? <Loader2 className="animate-spin" /> : (requires2FA ? 'Verify' : 'Sign In')}
             </button>
+            
+            {requires2FA && (
+              <button 
+                type="button"
+                onClick={() => {
+                  setRequires2FA(false);
+                  setOtpCode('');
+                  setError(null);
+                }}
+                className="w-full text-sm text-slate-500 hover:text-slate-700 font-medium"
+              >
+                Back to login
+              </button>
+            )}
           </form>
 
           <p className="text-center text-sm font-medium text-slate-500">

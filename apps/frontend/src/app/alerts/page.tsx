@@ -513,24 +513,32 @@ export default function AlertsPage() {
                     <Clock className="text-orange-600" />
                   )}
                 </div>
-                <div className="flex-grow">
-                  <div className="flex items-center gap-3 mb-1">
+                <div className="flex-grow min-w-0">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                      alert.type === 'ERROR' ? 'bg-red-100 text-red-600' :
+                      alert.type === 'LATENCY' ? 'bg-orange-100 text-orange-600' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>
+                      {alert.type || 'ALERT'}
+                    </span>
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                       {alert.service || 'unknown service'}
                     </span>
                     <span className="text-[10px] font-bold text-slate-300">•</span>
                     <span className="text-[10px] font-bold text-slate-400">
-                      {alert.timestamp ? new Date(alert.timestamp).toLocaleTimeString() : ''}
+                      {alert.timestamp ? new Date(alert.timestamp).toLocaleString() : ''}
                     </span>
                     <span className={`ml-2 px-2 py-0.5 text-[8px] font-black uppercase rounded-full ${
                       alert.severity === 'CRITICAL' ? 'bg-red-100 text-red-600' :
                       alert.severity === 'HIGH' ? 'bg-orange-100 text-orange-600' :
-                      'bg-yellow-100 text-yellow-600'
+                      alert.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-600' :
+                      'bg-emerald-100 text-emerald-600'
                     }`}>
                       {alert.severity || 'MEDIUM'}
                     </span>
                   </div>
-                  <h4 className="text-lg font-black font-sora tracking-tight text-slate-900">
+                  <h4 className="text-lg font-black font-sora tracking-tight text-slate-900 leading-tight">
                     {alert.message || 'Alert message not available'}
                   </h4>
                   {alert.traceId && (

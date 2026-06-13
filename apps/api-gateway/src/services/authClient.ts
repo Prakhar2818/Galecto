@@ -104,6 +104,51 @@ export class AuthClient {
     );
   }
 
+  async setup2FA(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/auth/2fa/setup`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async verifyAndEnable2FA(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/auth/2fa/verify-enable`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async disable2FA(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/auth/2fa/disable`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async verifyEmailOTP(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/auth/verify-email-otp`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
+  async acceptInvitation(data: any, headers: any) {
+    return httpRequest(
+      `${AUTH_SERVICE_URL}/users/accept-invitation`,
+      "POST",
+      data,
+      headers
+    );
+  }
+
   async getSloTargets(headers: any) {
     return httpRequest(
       `${AUTH_SERVICE_URL}/platform/slo/targets`,

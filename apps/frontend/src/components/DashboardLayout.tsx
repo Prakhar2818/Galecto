@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Activity, FileText, RotateCcw, 
-  Bell, Zap, Settings, LogOut, Search, Loader2, Code2, X, Target
+  Bell, Zap, Settings, LogOut, Search, Loader2, Code2, X, Target, Star, Trash2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,6 +17,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   
   const [searchQuery, setSearchQuery] = useState('');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [favorites, setFavorites] = useState<any[]>([]);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const favoritesRef = useRef<HTMLDivElement>(null);
+
+  const fetchFavorites = useCallback(async () => {
+    try {
+      const data = await apiFetch('/api/v1/favorites');
+      if (data.success) {
+        setFavorites(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch favorites:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFavorites();
+  }, [fetchFavorites]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (favoritesRef.current && !favoritesRef.current.contains(event.target as Node)) {
+        setShowFavorites(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleRemoveFavorite = async (id: string) => {
+    try {
+      await apiFetch(`/api/v1/favorites/${id}`, { method: 'DELETE' });
+      setFavorites(prev => prev.filter(f => f.id !== id));
+    } catch (err) {
+      console.error('Failed to remove favorite:', err);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +168,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
           </form>
           <div className="flex items-center gap-6">
+            <div className="relative" ref={favoritesRef}>
+              <button
+                onClick={() => setShowFavorites(!showFavorites)}
+                className="p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all shadow-sm relative"
+              >
+                <Star className={`w-4 h-4 ${favorites.length > 0 ? 'text-yellow-500 fill-yellow-500' : 'text-slate-600'}`} />
+                {favorites.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {favorites.length}
+                  </span>
+                )}
+              </button>
+              
+              {showFavorites && (
+                <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 z-50">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Favorites</h4>
+                    <span className="text-[10px] text-slate-400">{favorites.length} items</span>
+                  </div>
+                  {favorites.length === 0 ? (
+                    <div className="text-center py-6 text-slate-400 text-xs">
+                      No favorites yet. Star items to add them here.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {favorites.map((f) => (
+                        <div key={f.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl group">
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-700 truncate">{f.itemName || f.itemId}</div>
+                            <div className="text-[10px] text-slate-400 uppercase">{f.itemType}</div>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveFavorite(f.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-all"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
             <Link 
               href="/alerts"
               className="p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all shadow-sm relative"

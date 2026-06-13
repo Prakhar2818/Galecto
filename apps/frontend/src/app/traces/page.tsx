@@ -12,6 +12,12 @@ interface Trace {
   start_time: string;
   event_count: number;
   services: string[];
+  root_service?: string;
+  root_event?: string;
+  status?: string;
+  status_code?: number;
+  endpoint?: string;
+  display_name?: string;
 }
 
 interface TraceEvent {
@@ -65,6 +71,13 @@ function buildTree(events: TraceEvent[]): TraceEvent[] {
   return roots;
 }
 
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export default function TracesPage() {
   const router = useRouter();
   const [traces, setTraces] = useState<Trace[]>([]);
@@ -75,6 +88,7 @@ export default function TracesPage() {
   const [traceTree, setTraceTree] = useState<TraceTreeNode[] | null>(null);
   const [loadingTrace, setLoadingTrace] = useState(false);
   const [traceError, setTraceError] = useState<ErrorState | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 50, total: 0, totalPages: 1 });
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
@@ -84,16 +98,19 @@ export default function TracesPage() {
     }
   }, [selectedTrace, router]);
 
-  const fetchTraces = useCallback(async (isBackground = false) => {
+  const fetchTraces = useCallback(async (isBackground = false, page = 1) => {
     if (!isBackground) setLoading(true);
 
     try {
-      const data = await queryFetch('/api/v1/traces', { retries: 2 });
+      const data = await queryFetch(`/api/v1/traces?page=${page}&limit=50`, { retries: 2 });
 
       if (!isMountedRef.current) return;
 
       if (data.success) {
         setTraces(data.data || []);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
         setError(null);
       } else {
         setError({
@@ -260,39 +277,122 @@ export default function TracesPage() {
                   <div
                     key={t.trace_id}
                     onClick={() => handleViewTrace(t.trace_id)}
-                    className={`p-8 border-b border-slate-50 cursor-pointer transition-all hover:bg-slate-50 group relative ${
+                    className={`p-6 border-b border-slate-50 cursor-pointer transition-all hover:bg-slate-50 group relative ${
                       selectedTrace === t.trace_id ? 'bg-emerald-50/50 border-l-4 border-l-emerald-500' : ''
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="font-bold text-sm text-slate-900 group-hover:text-emerald-600 transition-colors font-mono tracking-tighter">
-                        {t.trace_id.substring(0, 20)}...
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`shrink-0 w-2 h-2 rounded-full ${
+                          t.status === 'ERROR' ? 'bg-red-500' :
+                          t.status === 'WARNING' ? 'bg-orange-500' :
+                          t.status === 'SUCCESS' ? 'bg-emerald-500' :
+                          'bg-slate-300'
+                        }`} />
+                        <div className="font-bold text-sm text-slate-900 group-hover:text-emerald-600 transition-colors font-mono tracking-tighter truncate">
+                          {t.trace_id.substring(0, 16)}...
+                        </div>
                       </div>
-                      <div className="text-[10px] font-bold text-slate-400">
-                        {new Date(t.start_time).toLocaleTimeString()}
+                      <div className="text-[10px] font-bold text-slate-400 shrink-0">
+                        {new Date(t.start_time).toLocaleString()}
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-slate-700">
+                        {t.root_service || t.services?.[0] || 'Unknown'}
+                      </span>
+                      {t.display_name && t.display_name !== t.root_event && (
+                        <span className="text-xs text-slate-500 truncate">
+                          • {t.display_name}
+                        </span>
+                      )}
+                    </div>
+                    {t.endpoint && (
+                      <div className="text-[10px] font-mono text-slate-400 mb-2 truncate">
+                        {t.endpoint}
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <div className="flex gap-2 flex-wrap">
-                        {(t.services || []).map((s) => (
+                        {(t.services || []).slice(0, 3).map((s) => (
                           <span key={s} className="px-2 py-0.5 bg-white border border-slate-100 text-[8px] font-black uppercase rounded-md text-slate-500">
                             {s}
                           </span>
                         ))}
+                        {(t.services || []).length > 3 && (
+                          <span className="px-2 py-0.5 bg-slate-50 text-[8px] font-black uppercase rounded-md text-slate-400">
+                            +{(t.services || []).length - 3}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs font-bold text-slate-400">
-                        {(t.event_count || 0).toLocaleString()} events
+                      <div className="flex items-center gap-2">
+                        {t.status && (
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                            t.status === 'ERROR' ? 'bg-red-100 text-red-600' :
+                            t.status === 'WARNING' ? 'bg-orange-100 text-orange-600' :
+                            t.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-600' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {t.status}
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-slate-400">
+                          {(t.event_count || 0).toLocaleString()} events
+                        </span>
                       </div>
                     </div>
                     {selectedTrace === t.trace_id && (
-                      <div className="absolute right-8 bottom-8 text-emerald-500">
-                        <ChevronRight size={24} />
+                      <div className="absolute right-6 bottom-6 text-emerald-500">
+                        <ChevronRight size={20} />
                       </div>
                     )}
                   </div>
                 ))
               )}
             </div>
+            {/* Pagination Controls */}
+            {pagination.totalPages > 1 && (
+              <div className="p-4 border-t border-slate-50 flex items-center justify-between">
+                <div className="text-xs text-slate-400 font-medium">
+                  Showing {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} traces
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => fetchTraces(false, pagination.page - 1)}
+                    disabled={pagination.page <= 1 || loading}
+                    className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                      const pageNum = Math.max(1, Math.min(pagination.totalPages - 4, pagination.page - 2)) + i;
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => fetchTraces(false, pageNum)}
+                          disabled={loading}
+                          className={`w-8 h-8 text-xs font-bold rounded-lg ${
+                            pagination.page === pageNum
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          } disabled:opacity-50`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => fetchTraces(false, pagination.page + 1)}
+                    disabled={pagination.page >= pagination.totalPages || loading}
+                    className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

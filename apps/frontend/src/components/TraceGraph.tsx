@@ -26,19 +26,50 @@ function safeJsonParse(str: string | undefined | null): any {
 }
 
 const ServiceNode = ({ data }: any) => {
+  const isSystemEvent = data?.display_name?.startsWith('[system]');
+  const displayName = data?.display_name || data?.event_name || 'Unknown Event';
+  const statusCode = data?.status_code || 0;
+  const hasError = statusCode >= 400;
+  const isRoot = data?.isRoot === true;
+  
   return (
-    <div className="px-6 py-4 shadow-xl rounded-2xl bg-white border-2 border-emerald-100 min-w-[200px] cursor-pointer hover:border-emerald-500 transition-all group relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 opacity-20" />
-      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
-      <div className="flex flex-col">
-        <div className="text-[9px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-1">
-          {data?.service_name || 'Unknown'}
+    <div className={`px-6 py-4 shadow-xl rounded-2xl bg-white border-2 min-w-[220px] cursor-pointer hover:shadow-2xl transition-all group relative overflow-hidden ${
+      hasError ? 'border-red-200 hover:border-red-500' : 
+      isRoot ? 'border-blue-200 hover:border-blue-500' : 
+      'border-emerald-100 hover:border-emerald-500'
+    }`}>
+      <div className={`absolute top-0 left-0 w-full h-1 ${
+        hasError ? 'bg-red-500' : isRoot ? 'bg-blue-500' : 'bg-emerald-500'
+      } ${isRoot ? 'opacity-40' : 'opacity-20'}`} />
+      <Handle type="target" position={Position.Top} className={`w-3 h-3 shadow-[0_0_10px_rgba(16,185,129,0.4)] ${hasError ? '!bg-red-500' : '!bg-emerald-500'}`} />
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[9px] font-black text-emerald-600 uppercase tracking-[0.2em]">
+            {data?.service_name || 'Unknown'}
+          </div>
+          {isRoot && (
+            <span className="text-[8px] font-black uppercase tracking-wider text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">
+              ROOT
+            </span>
+          )}
+          {hasError && (
+            <span className="text-[8px] font-black uppercase tracking-wider text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
+              {statusCode}
+            </span>
+          )}
         </div>
-        <div className="text-sm text-slate-900 font-bold tracking-tight font-sora">
-          {data?.event_name || 'Unknown Event'}
+        <div className={`text-sm font-bold tracking-tight font-sora leading-tight ${
+          isSystemEvent ? 'text-slate-500' : 'text-slate-900'
+        }`}>
+          {displayName}
         </div>
+        {data?.duration_ms > 0 && (
+          <div className="text-[9px] font-medium text-slate-400">
+            {data.duration_ms}ms
+          </div>
+        )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
+      <Handle type="source" position={Position.Bottom} className={`w-3 h-3 shadow-[0_0_10px_rgba(16,185,129,0.4)] ${hasError ? '!bg-red-500' : '!bg-emerald-500'}`} />
     </div>
   );
 };
@@ -59,9 +90,11 @@ export default function TraceGraph({ tree }: TraceGraphProps) {
     const edges: Edge[] = [];
     const visitedIds = new Set<string>();
 
-    const traverse = (node: any, x: number, y: number, parentId?: string) => {
+    const traverse = (node: any, x: number, y: number, parentId?: string, depth: number = 0) => {
       if (!node || !node.span_id || visitedIds.has(node.span_id)) return;
       visitedIds.add(node.span_id);
+
+      const isRoot = depth === 0 && !parentId;
 
       nodes.push({
         id: node.span_id,
@@ -69,8 +102,13 @@ export default function TraceGraph({ tree }: TraceGraphProps) {
         data: { 
           service_name: node.service_name, 
           event_name: node.event_name,
+          display_name: node.display_name,
           payload: node.payload,
-          timestamp: node.timestamp
+          timestamp: node.timestamp,
+          status_code: node.status_code,
+          duration_ms: node.duration_ms,
+          isRoot: isRoot,
+          depth: depth
         },
         position: { x, y },
       });
@@ -81,23 +119,26 @@ export default function TraceGraph({ tree }: TraceGraphProps) {
           source: parentId,
           target: node.span_id,
           animated: true,
-          style: { stroke: '#10b981', strokeWidth: 3 },
+          style: { 
+            stroke: node.status_code >= 400 ? '#ef4444' : '#10b981', 
+            strokeWidth: 2 + (depth > 2 ? 0 : 2 - depth)
+          },
         });
       }
 
       if (node.children && Array.isArray(node.children) && node.children.length > 0) {
         const childCount = node.children.length;
-        const spacing = 280;
+        const spacing = Math.max(200, 300 - depth * 40);
         const startX = x - ((childCount - 1) * spacing) / 2;
         
         node.children.forEach((child: any, index: number) => {
-          traverse(child, startX + index * spacing, y + 150, node.span_id);
+          traverse(child, startX + index * spacing, y + 160, node.span_id, depth + 1);
         });
       }
     };
 
     tree.forEach((root, index) => {
-      traverse(root, index * 600, 0);
+      traverse(root, index * 650, 0);
     });
 
     return { nodes, edges };

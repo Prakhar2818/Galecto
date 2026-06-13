@@ -10,6 +10,13 @@ export class SlackNotifier extends BaseNotifier {
       return;
     }
 
+    // Validate Slack webhook URL format
+    if (!webhookUrl.startsWith('https://hooks.slack.com/services/')) {
+      console.error(`[SlackNotifier] Invalid webhook URL format: ${webhookUrl.substring(0, 40)}...`);
+      console.error(`[SlackNotifier] Expected format: https://hooks.slack.com/services/T.../B.../...`);
+      throw new Error(`Invalid Slack webhook URL format`);
+    }
+
     const severityEmoji = this.getSeverityEmoji(payload.severity);
 
     const slackMessage: any = {

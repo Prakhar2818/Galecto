@@ -96,14 +96,59 @@ async function start() {
         durationMs = event.payload?.durationMs || event.payload?.duration || 0;
       }
 
+      // Extract actual error details from payload for meaningful alerts
+      let errorType = statusCode >= 400 ? 'ERROR' : 'LATENCY';
+      let endpoint = '';
+      let actualErrorMessage = '';
+
+      // Extract endpoint/URL
+      endpoint = event.payload?.url || event.payload?.path || event.payload?.endpoint || 
+                 event.payload?.attributes?.['http.url'] || event.payload?.attributes?.['http.path'] || 
+                 event.payload?.route || '';
+
+      // Extract actual error message from various payload shapes
       if (statusCode >= 400) {
+        actualErrorMessage = event.payload?.statusMessage || 
+                             event.payload?.message || 
+                             event.payload?.error || 
+                             event.payload?.errorMessage || 
+                             event.payload?.body?.stringValue || 
+                             event.payload?.body?.message || 
+                             event.payload?.responseBody?.message || 
+                             event.payload?.responseBody?.error || 
+                             event.payload?.attributes?.['http.status_text'] || 
+                             '';
+        
+        if (!actualErrorMessage && event.payload?.body) {
+          try {
+            const bodyStr = typeof event.payload.body === 'string' ? event.payload.body : JSON.stringify(event.payload.body);
+            const parsedBody = JSON.parse(bodyStr);
+            actualErrorMessage = parsedBody.message || parsedBody.error || parsedBody.detail || '';
+          } catch {
+            // body is not JSON, keep empty
+          }
+        }
+
         triggerAlert = true;
-        reason = `High Error Rate: ${event.service} returned status ${statusCode}`;
+        if (actualErrorMessage) {
+          reason = `${event.service} ${statusCode}: ${actualErrorMessage}`;
+        } else {
+          reason = `${event.service} returned HTTP ${statusCode}`;
+        }
+        if (endpoint) {
+          reason += ` (${endpoint})`;
+        }
       }
 
       if (durationMs > 500) {
         triggerAlert = true;
-        reason = `Latency Spike: ${event.service} request took ${durationMs}ms`;
+        errorType = 'LATENCY';
+        const latencyReason = `Latency spike: ${event.service} took ${durationMs}ms`;
+        if (endpoint) {
+          reason = reason ? `${reason} | ${latencyReason} (${endpoint})` : `${latencyReason} (${endpoint})`;
+        } else {
+          reason = reason ? `${reason} | ${latencyReason}` : latencyReason;
+        }
       }
 
       if (triggerAlert && event.tenantId) {
@@ -112,9 +157,10 @@ async function start() {
             data: {
               traceId: event.traceId,
               service: event.service,
-              type: statusCode >= 400 ? 'ERROR' : 'LATENCY',
+              type: errorType,
               message: reason,
               status: AlertStatus.ACTIVE,
+              severity: statusCode >= 500 ? AlertSeverity.CRITICAL : statusCode >= 400 ? AlertSeverity.HIGH : AlertSeverity.MEDIUM,
               organizationId: event.tenantId,
             }
           });
@@ -124,6 +170,13 @@ async function start() {
             where: { organizationId: event.tenantId, enabled: true }
           });
 
+          // Get all organization users for email notifications
+          const users = await prisma.user.findMany({
+            where: { organizationId: event.tenantId },
+            select: { email: true }
+          });
+          const userEmails = users.map(u => u.email);
+
           if (channels.length > 0) {
             const notificationPayload: NotificationPayload = {
               title: `Alert: ${event.service}`,
@@ -131,7 +184,8 @@ async function start() {
               severity: statusCode >= 400 ? "HIGH" : "MEDIUM",
               service: event.service,
               eventData: event.payload,
-              timestamp: new Date()
+              timestamp: new Date(),
+              userEmails
             };
 
             for (const channel of channels) {
@@ -200,7 +254,7 @@ async function start() {
       const results = [];
       for (const channel of channels) {
         try {
-          await notificationService.sendNotification(channel.type, testPayload);
+          await notificationService.sendNotification(channel.type, testPayload, channel.config);
           results.push({ channelId: channel.id, type: channel.type, status: "sent" });
         } catch (error) {
           results.push({ channelId: channel.id, type: channel.type, status: "failed", error: String(error) });
@@ -242,10 +296,29 @@ async function start() {
         timestamp: new Date()
       };
 
-      await notificationService.sendNotification("SLACK", notificationPayload);
+      // Get all organization users for email notifications
+      const users = await prisma.user.findMany({
+        where: { organizationId: orgId },
+        select: { email: true }
+      });
+      const userEmails = users.map(u => u.email);
+      const notificationPayloadWithUsers: NotificationPayload = {
+        ...notificationPayload,
+        userEmails
+      };
+
+      // Get Slack channel config
+      const slackChannel = await prisma.notificationChannel.findFirst({
+        where: { organizationId: orgId, type: 'SLACK', enabled: true }
+      });
+      await notificationService.sendNotification("SLACK", notificationPayloadWithUsers, slackChannel?.config);
       console.log(`[AlertService] Sent SLACK notification for test alert`);
       
-      await notificationService.sendNotification("EMAIL", notificationPayload);
+      // Get Email channel config
+      const emailChannel = await prisma.notificationChannel.findFirst({
+        where: { organizationId: orgId, type: 'EMAIL', enabled: true }
+      });
+      await notificationService.sendNotification("EMAIL", notificationPayloadWithUsers, emailChannel?.config);
       console.log(`[AlertService] Sent EMAIL notification for test alert`);
 
       return { 

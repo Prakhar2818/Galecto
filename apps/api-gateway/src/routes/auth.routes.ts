@@ -37,6 +37,40 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
+  app.post("/api/v1/auth/verify-email-otp", async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const res = await authClient.verifyEmailOTP(data, headers);
+    return reply.send(res);
+  });
+
+  app.post("/api/v1/auth/2fa/setup", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const res = await authClient.setup2FA(data, headers);
+    return reply.send(res);
+  });
+
+  app.post("/api/v1/auth/2fa/verify-enable", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const res = await authClient.verifyAndEnable2FA(data, headers);
+    return reply.send(res);
+  });
+
+  app.post("/api/v1/auth/2fa/disable", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
+    const data = req.body;
+    const headers = req.headers;
+    const res = await authClient.disable2FA(data, headers);
+    return reply.send(res);
+  });
+
+  app.post("/users/accept-invitation", async (req: any, reply) => {
+    const data = req.body;
+    const res = await authClient.acceptInvitation(data, req.headers);
+    return reply.send(res);
+  });
+
   app.get("/projects", { preHandler: [jwtAuthMiddleware] }, async (req: any, reply) => {
     const headers = req.headers;
     const res = await authClient.listProjects(headers);

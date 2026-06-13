@@ -17,6 +17,7 @@ export async function traceRoutes(fastify: FastifyInstance) {
   fastify.get("/", async (req, reply) => controller.listTraces(req, reply));
   fastify.get("/anomalies", async (req, reply) => controller.listAnomalies(req, reply));
   fastify.get("/metrics", async (req, reply) => controller.getPerformanceMetrics(req, reply));
+  fastify.get("/anomalies-summary", async (req, reply) => controller.getAnomalySummary(req, reply));
   fastify.get("/:traceId", async (req, reply) => controller.getTraceDetails(req, reply));
 }
 

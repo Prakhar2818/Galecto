@@ -351,6 +351,13 @@ export interface Trace {
   end_time: string;
   event_count: number;
   services: string[];
+  root_service?: string;
+  root_event?: string;
+  root_status_code?: number;
+  status?: string;
+  status_code?: number;
+  endpoint?: string;
+  display_name?: string;
 }
 
 export interface TraceDetail {

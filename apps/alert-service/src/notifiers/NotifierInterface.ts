@@ -5,6 +5,7 @@ export interface NotificationPayload {
   service: string;
   eventData?: any;
   timestamp: Date;
+  userEmails?: string[];
 }
 
 export interface Notifier {

@@ -4,10 +4,12 @@ const ALERT_SERVICE_URL = process.env.NEXT_PUBLIC_ALERT_SERVICE_URL || 'http://l
 
 const DEFAULT_TIMEOUT = 10000;
 const MAX_RETRIES = 3;
+const CACHE_TTL_MS = 30000; // 30 seconds
 
 interface FetchOptions extends RequestInit {
   timeout?: number;
   retries?: number;
+  useCache?: boolean;
 }
 
 class ApiError extends Error {
@@ -19,6 +21,29 @@ class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+// Simple in-memory cache with TTL
+const requestCache = new Map<string, { data: any; timestamp: number }>();
+const pendingRequests = new Map<string, Promise<any>>();
+
+function getCacheKey(url: string, options: FetchOptions): string {
+  return `${url}:${options.method || 'GET'}:${options.body || ''}`;
+}
+
+function getCachedResponse(key: string): any | null {
+  const cached = requestCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+  if (cached) {
+    requestCache.delete(key);
+  }
+  return null;
+}
+
+function setCachedResponse(key: string, data: any): void {
+  requestCache.set(key, { data, timestamp: Date.now() });
 }
 
 async function fetchWithTimeout(
@@ -100,36 +125,64 @@ async function makeRequest(
     ...(options.headers as Record<string, string> || {}),
   };
 
-  const { timeout, retries, ...fetchOptions } = options;
+  const { timeout, retries, useCache, ...fetchOptions } = options;
   const effectiveRetries = retries ?? MAX_RETRIES;
+  const url = `${baseUrl}${endpoint}`;
+  const cacheKey = getCacheKey(url, options);
 
-  try {
-    const response = await fetchWithRetry(
-      `${baseUrl}${endpoint}`,
-      {
-        ...fetchOptions,
-        headers,
-      },
-      effectiveRetries
-    );
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
+  // Check cache for GET requests
+  if (useCache !== false && (!options.method || options.method === 'GET')) {
+    const cached = getCachedResponse(cacheKey);
+    if (cached) {
+      return cached;
     }
-
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new ApiError('Request timeout', 408, 'TIMEOUT');
-    }
-
-    throw new ApiError(
-      error instanceof Error ? error.message : 'Network error',
-      0,
-      'NETWORK_ERROR'
-    );
   }
+
+  // Deduplicate in-flight requests
+  if (pendingRequests.has(cacheKey)) {
+    return pendingRequests.get(cacheKey)!;
+  }
+
+  const requestPromise = (async () => {
+    try {
+      const response = await fetchWithRetry(
+        url,
+        {
+          ...fetchOptions,
+          headers,
+        },
+        effectiveRetries
+      );
+
+      const data = await response.json();
+      
+      // Cache successful GET responses
+      if (useCache !== false && (!options.method || options.method === 'GET')) {
+        setCachedResponse(cacheKey, data);
+      }
+      
+      return data;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new ApiError('Request timeout', 408, 'TIMEOUT');
+      }
+
+      throw new ApiError(
+        error instanceof Error ? error.message : 'Network error',
+        0,
+        'NETWORK_ERROR'
+      );
+    } finally {
+      pendingRequests.delete(cacheKey);
+    }
+  })();
+
+  pendingRequests.set(cacheKey, requestPromise);
+  return requestPromise;
 }
 
 export async function apiFetch(

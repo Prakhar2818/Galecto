@@ -35,6 +35,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showSessionWarning, setShowSessionWarning] = useState(false);
+  const sessionTimeoutMinutes = 30; // Configurable
+
+  const clearSessionTimers = useCallback(() => {
+    if (sessionTimeoutRef.current) {
+      clearTimeout(sessionTimeoutRef.current);
+      sessionTimeoutRef.current = null;
+    }
+    if (warningTimeoutRef.current) {
+      clearTimeout(warningTimeoutRef.current);
+      warningTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetSessionTimer = useCallback(() => {
+    if (!isAuthenticated) return;
+    clearSessionTimers();
+    
+    const timeoutMs = sessionTimeoutMinutes * 60 * 1000;
+    const warningMs = timeoutMs - 2 * 60 * 1000; // Warning 2 minutes before
+    
+    warningTimeoutRef.current = setTimeout(() => {
+      setShowSessionWarning(true);
+    }, warningMs);
+    
+    sessionTimeoutRef.current = setTimeout(() => {
+      logout();
+    }, timeoutMs);
+  }, [isAuthenticated, clearSessionTimers]);
 
   useEffect(() => {
     const initAuth = () => {
@@ -78,6 +109,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
   }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      resetSessionTimer();
+      
+      const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+      const handleActivity = () => resetSessionTimer();
+      
+      events.forEach(event => {
+        window.addEventListener(event, handleActivity);
+      });
+      
+      return () => {
+        clearSessionTimers();
+        events.forEach(event => {
+          window.removeEventListener(event, handleActivity);
+        });
+      };
+    }
+  }, [isAuthenticated, resetSessionTimer, clearSessionTimers]);
 
   const refreshToken = useCallback(async (): Promise<boolean> => {
     if (!token) return false;
@@ -155,6 +206,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+      {showSessionWarning && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-2">Session Expiring Soon</h3>
+              <p className="text-sm text-slate-500">Your session will expire in 2 minutes due to inactivity. Click below to stay logged in.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSessionWarning(false);
+                  resetSessionTimer();
+                }}
+                className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600"
+              >
+                Stay Logged In
+              </button>
+              <button
+                onClick={() => {
+                  setShowSessionWarning(false);
+                  logout();
+                }}
+                className="flex-1 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 }

@@ -15,6 +15,10 @@ export async function userRoutes(fastify: FastifyInstance) {
     handler: (req, reply) => userController.inviteUser(req, reply)
   });
   
+  fastify.post('/accept-invitation', {
+    handler: (req, reply) => userController.acceptInvitation(req, reply)
+  });
+  
   fastify.put('/:userId/role', {
     preHandler: authenticate,
     handler: (req, reply) => userController.updateUserRole(req, reply)

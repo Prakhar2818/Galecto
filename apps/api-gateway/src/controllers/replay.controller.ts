@@ -44,9 +44,25 @@ export class ReplayController {
         return reply.status(400).send({ error: urlValidation.error });
       }
 
-      headers = replayProtection.filterHeaders(headers);
-      body = replayProtection.maskPii(body);
-      body = replayProtection.redactSensitiveFields(body);
+      headers = replayProtection.filterHeaders(headers || {});
+      
+      // Safely handle body: only parse/mask if present and method typically uses body
+      const methodsWithBody = ['POST', 'PUT', 'PATCH', 'DELETE'];
+      const shouldSendBody = methodsWithBody.includes((method || 'GET').toUpperCase()) && body !== undefined && body !== null;
+      
+      let processedBody = null;
+      if (shouldSendBody) {
+        try {
+          if (typeof body === 'string') {
+            body = JSON.parse(body);
+          }
+        } catch {
+          // If body is not valid JSON, keep as string
+        }
+        body = replayProtection.maskPii(body);
+        body = replayProtection.redactSensitiveFields(body);
+        processedBody = body;
+      }
 
       const replayExecution = await prisma.replayExecution.create({
         data: {
@@ -56,7 +72,7 @@ export class ReplayController {
           requestMethod: method,
           requestUrl: url,
           requestHeaders: JSON.stringify(headers),
-          requestBody: body ? JSON.stringify(body) : null,
+          requestBody: processedBody ? JSON.stringify(processedBody) : null,
         }
       });
 
@@ -70,10 +86,9 @@ export class ReplayController {
       });
 
       try {
-        const response = await axios({
+        const axiosConfig: any = {
           method,
           url: url,
-          data: body,
           headers: {
             ...headers,
             'x-trace-id': replayTraceId,
@@ -81,7 +96,14 @@ export class ReplayController {
             'x-galecto-replay': 'true'
           },
           validateStatus: () => true
-        });
+        };
+
+        // Only attach data if body is present and method supports it
+        if (shouldSendBody && processedBody !== null) {
+          axiosConfig.data = processedBody;
+        }
+
+        const response = await axios(axiosConfig);
 
         const maskedResponse = replayProtection.maskPii(response.data);
 

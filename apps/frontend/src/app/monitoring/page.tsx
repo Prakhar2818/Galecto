@@ -282,7 +282,7 @@ function MonitoringContent() {
           )}
 
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm mt-8">
-            <h4 className="text-sm font-black font-sora uppercase tracking-widest text-slate-400 mb-6">Service Status</h4>
+            <h4 className="text-sm font-black font-sora uppercase tracking-widest text-slate-400 mb-6">Application Health</h4>
             <div className="space-y-4">
               {metrics.length === 0 ? (
                 <div className="text-center text-slate-400 py-4">
@@ -290,21 +290,43 @@ function MonitoringContent() {
                 </div>
               ) : (
                 metrics.map((m) => {
-                  const hasErrors = Number(m.errors) > 0;
                   const errorRate = Number(m.total_requests) > 0
                     ? (Number(m.errors) / Number(m.total_requests)) * 100
                     : 0;
+                  const avgLatency = Number(m.avg_latency) || 0;
+                  
+                  // Calculate health status
+                  let healthStatus: 'Healthy' | 'Warning' | 'Critical' | 'Offline' = 'Healthy';
+                  let healthColor = 'bg-emerald-100 text-emerald-600';
+                  let healthIcon = <CheckCircle2 className="w-3 h-3" />;
+                  
+                  if (errorRate > 5 || avgLatency > 500) {
+                    healthStatus = 'Critical';
+                    healthColor = 'bg-red-100 text-red-600';
+                    healthIcon = <AlertCircle className="w-3 h-3" />;
+                  } else if (errorRate > 1 || avgLatency > 200) {
+                    healthStatus = 'Warning';
+                    healthColor = 'bg-orange-100 text-orange-600';
+                    healthIcon = <AlertCircle className="w-3 h-3" />;
+                  } else if (Number(m.total_requests) === 0) {
+                    healthStatus = 'Offline';
+                    healthColor = 'bg-slate-100 text-slate-600';
+                    healthIcon = <Server className="w-3 h-3" />;
+                  }
                   
                   return (
-                    <div key={m.service_name} className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-slate-600 truncate max-w-[150px]">
-                        {m.service_name || 'Unknown'}
-                      </span>
-                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg flex items-center gap-1 ${
-                        hasErrors ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'
-                      }`}>
-                        {hasErrors ? <AlertCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                        {hasErrors ? `${errorRate.toFixed(1)}% errors` : 'healthy'}
+                    <div key={m.service_name} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-bold text-slate-700 truncate max-w-[150px]">
+                          {m.service_name || 'Unknown'}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {errorRate.toFixed(1)}% errors • {Math.round(avgLatency)}ms
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg flex items-center gap-1 ${healthColor}`}>
+                        {healthIcon}
+                        {healthStatus}
                       </span>
                     </div>
                   );

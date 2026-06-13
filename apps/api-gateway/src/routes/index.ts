@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { PrismaClient } from "@prisma/client";
 import { HealthController } from "../controllers/health.controller";
 import { authMiddleware } from "../middleware/auth";
 import { sendEvent } from "../../../../packages/kafka/src/producer";
@@ -7,6 +8,8 @@ import { v4 as uuidv4 } from "uuid";
 
 import { ReplayController } from "../controllers/replay.controller";
 import { OtlpController } from "../controllers/otlp.controller";
+
+const prisma = new PrismaClient();
 
 async function jwtAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
   try {
@@ -59,6 +62,62 @@ export async function routes(fastify: FastifyInstance) {
       return replayController.executeReplay(request, reply);
     }
   );
+
+  // Favorites endpoints
+  fastify.get("/api/v1/favorites", { preHandler: [jwtAuthMiddleware] }, async (request, reply) => {
+    const user = (request as any).user;
+    const orgId = user?.organizationId;
+    const userId = user?.id;
+    
+    const favorites = await prisma.favorite.findMany({
+      where: { userId, organizationId: orgId },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    return reply.send({ success: true, data: favorites });
+  });
+
+  fastify.post("/api/v1/favorites", { preHandler: [jwtAuthMiddleware] }, async (request, reply) => {
+    const user = (request as any).user;
+    const orgId = user?.organizationId;
+    const userId = user?.id;
+    const { itemType, itemId, itemName } = request.body as any;
+    
+    if (!itemType || !itemId) {
+      return reply.status(400).send({ error: "itemType and itemId are required" });
+    }
+    
+    try {
+      const favorite = await prisma.favorite.create({
+        data: {
+          userId,
+          itemType,
+          itemId,
+          itemName: itemName || itemId,
+          organizationId: orgId
+        }
+      });
+      return reply.send({ success: true, data: favorite });
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        return reply.status(409).send({ error: "Item already favorited" });
+      }
+      throw err;
+    }
+  });
+
+  fastify.delete("/api/v1/favorites/:id", { preHandler: [jwtAuthMiddleware] }, async (request, reply) => {
+    const user = (request as any).user;
+    const orgId = user?.organizationId;
+    const userId = user?.id;
+    const { id } = request.params as { id: string };
+    
+    await prisma.favorite.deleteMany({
+      where: { id, userId, organizationId: orgId }
+    });
+    
+    return reply.send({ success: true });
+  });
 
   fastify.post(
     "/api/v1/ingest",

@@ -11,10 +11,15 @@ export class EmailNotifier extends BaseNotifier {
     }
 
     let recipients: string[] = [];
-    if (channelConfig?.recipients && Array.isArray(channelConfig.recipients)) {
+    if (payload.userEmails && payload.userEmails.length > 0) {
+      recipients = payload.userEmails;
+      console.log(`[EmailNotifier] Using ${recipients.length} organization user emails`);
+    } else if (channelConfig?.recipients && Array.isArray(channelConfig.recipients)) {
       recipients = channelConfig.recipients;
+      console.log(`[EmailNotifier] Using ${recipients.length} recipients from channel config`);
     } else {
       recipients = (process.env.ALERT_EMAIL_RECIPIENTS || "").split(",").map(e => e.trim()).filter(Boolean);
+      console.log(`[EmailNotifier] Using ${recipients.length} recipients from env fallback`);
     }
     if (recipients.length === 0) {
       console.log(`[EmailNotifier] No email recipients configured`);
