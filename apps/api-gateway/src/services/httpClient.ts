@@ -1,6 +1,6 @@
 import { request } from "undici";
 
-function buildForwardHeaders(headers: Record<string, any> = {}) {
+function buildForwardHeaders(headers: Record<string, any> = {}, hasBody: boolean = false) {
   const blockedHeaders = new Set([
     "connection",
     "content-length",
@@ -15,9 +15,12 @@ function buildForwardHeaders(headers: Record<string, any> = {}) {
     "upgrade",
   ]);
 
-  const forwardedHeaders: Record<string, string> = {
-    "content-type": "application/json",
-  };
+  const forwardedHeaders: Record<string, string> = {};
+
+  // Only set Content-Type when there's actually a body
+  if (hasBody) {
+    forwardedHeaders["content-type"] = "application/json";
+  }
 
   for (const [name, value] of Object.entries(headers)) {
     const key = name.toLowerCase();
@@ -40,10 +43,11 @@ export async function httpRequest(
   body?: any,
   headers?: any
 ) {
+  const hasBody = !!body;
   const res = await request(url, {
     method,
-    body: body ? JSON.stringify(body) : undefined,
-    headers: buildForwardHeaders(headers),
+    body: hasBody ? JSON.stringify(body) : undefined,
+    headers: buildForwardHeaders(headers, hasBody),
   });
 
   const data = await res.body.json();

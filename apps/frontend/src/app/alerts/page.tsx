@@ -166,9 +166,16 @@ export default function AlertsPage() {
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (isBackground) setRefreshing(true);
-    await Promise.all([fetchAlerts(isBackground), fetchRules(), fetchChannels()]);
-    if (!isBackground) setLoading(false);
-    setRefreshing(false);
+    if (!isBackground) setLoading(true);
+    try {
+      await Promise.all([fetchAlerts(isBackground), fetchRules(), fetchChannels()]);
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+      throw err;
+    } finally {
+      if (!isBackground) setLoading(false);
+      setRefreshing(false);
+    }
   }, [fetchAlerts, fetchRules, fetchChannels]);
 
   useEffect(() => {
@@ -206,6 +213,8 @@ export default function AlertsPage() {
       if (data.success) {
         showToast('Alert resolved successfully', 'success');
         fetchAlerts(false);
+        // Force page reload after a short delay to ensure fresh data
+        setTimeout(() => window.location.reload(), 100);
       } else {
         showToast(data.error?.message || 'Failed to resolve alert', 'error');
       }
@@ -293,7 +302,8 @@ export default function AlertsPage() {
     try {
       const data = await apiFetch(`/api/v1/platform/rules/${ruleId}`, {
         method: 'DELETE',
-        retries: 1
+        retries: 1,
+        headers: {} // Explicitly empty to ensure no Content-Type is sent
       });
 
       if (!isMountedRef.current) return;
@@ -301,6 +311,8 @@ export default function AlertsPage() {
       if (data.success) {
         showToast('Rule deleted successfully', 'success');
         fetchRules();
+        // Force page reload after a short delay to ensure fresh data
+        setTimeout(() => window.location.reload(), 1500);
       } else {
         showToast(data.error?.message || 'Failed to delete rule', 'error');
       }
@@ -462,7 +474,17 @@ export default function AlertsPage() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => { setRefreshing(true); fetchData(true); }}
+            onClick={async () => {
+              setRefreshing(true);
+              try {
+                await fetchData(true);
+                showToast('Data refreshed successfully', 'success');
+              } catch (err) {
+                showToast('Failed to refresh data', 'error');
+              } finally {
+                setRefreshing(false);
+              }
+            }}
             disabled={refreshing || loading}
             className="btn-secondary !py-2.5 !px-5 !rounded-xl text-sm flex items-center gap-2 disabled:opacity-50"
           >

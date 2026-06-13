@@ -120,10 +120,14 @@ async function makeRequest(
   const token = localStorage.getItem('ag_token');
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string> || {}),
   };
+
+  // Only set Content-Type for requests that have a body
+  if (options.body) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   const { timeout, retries, useCache, ...fetchOptions } = options;
   const effectiveRetries = retries ?? MAX_RETRIES;
