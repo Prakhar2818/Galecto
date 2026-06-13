@@ -417,7 +417,7 @@ export default function AlertsPage() {
   const handleTestChannel = async (channelId: string) => {
     setTestingChannelId(channelId);
     try {
-      const data = await apiFetch(`/api/v1/notifications/${channelId}/test`, {
+      const data = await alertFetch(`/api/v1/test-channel/${channelId}`, {
         method: 'POST',
         retries: 1
       });
@@ -841,7 +841,7 @@ export default function AlertsPage() {
                   placeholder="e.g., api-gateway, auth-service"
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
                 />
-                <p className="text-xs text-slate-400 mt-1">Comma-separated service names</p>
+                <p className="text-xs text-slate-400 mt-1">Comma-separated service names. Use <span className="font-bold text-emerald-600">All</span> to match all services.</p>
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Condition</label>

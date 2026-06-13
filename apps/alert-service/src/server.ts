@@ -360,6 +360,38 @@ async function start() {
       return { success: true, data: { testedChannels: results.length, results } };
     });
 
+    app.post("/api/v1/test-channel/:channelId", async (request, reply) => {
+      const user = request.user as any;
+      const orgId = user?.organizationId;
+      const { channelId } = request.params as { channelId: string };
+      
+      const channel = await prisma.notificationChannel.findFirst({
+        where: { id: channelId, organizationId: orgId, enabled: true }
+      });
+
+      if (!channel) {
+        return reply.status(404).send({ success: false, error: "Channel not found" });
+      }
+
+      const testPayload: NotificationPayload = {
+        title: "Test Alert from Galecto",
+        message: "This is a test notification to verify this channel is working.",
+        severity: "HIGH",
+        service: "test-service",
+        eventData: { test: true, timestamp: Date.now() },
+        timestamp: new Date()
+      };
+
+      try {
+        await notificationService.sendNotification(channel.type, testPayload, channel.config);
+        console.log(`[AlertService] Test notification sent to ${channel.type} channel ${channel.id}`);
+        return { success: true, message: `Test notification sent to ${channel.name} (${channel.type})` };
+      } catch (error) {
+        console.error(`[AlertService] Failed to send test notification to ${channel.type} channel ${channel.id}:`, error);
+        return reply.status(500).send({ success: false, error: `Failed to send test notification: ${error}` });
+      }
+    });
+
     app.post("/api/v1/trigger-test-alert", async (request, reply) => {
       const user = request.user as any;
       const orgId = user?.organizationId || "test-org-123";

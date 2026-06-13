@@ -48,15 +48,19 @@ export class RuleEvaluator {
       const rules = await this.prisma.alertRule.findMany({
         where: {
           organizationId: normalizedEvent.tenantId,
-          enabled: true,
-          services: { has: normalizedEvent.service }
+          enabled: true
         },
         include: { notifications: true }
       });
 
-      console.log(`[RuleEvaluator] Found ${rules.length} matching rules for service ${normalizedEvent.service} in org ${normalizedEvent.tenantId}`);
+      const matchingRules = rules.filter(rule => {
+        const services = rule.services || [];
+        return services.includes('All') || services.includes(normalizedEvent.service);
+      });
 
-      for (const rule of rules) {
+      console.log(`[RuleEvaluator] Found ${matchingRules.length} matching rules for service ${normalizedEvent.service} in org ${normalizedEvent.tenantId}`);
+
+      for (const rule of matchingRules) {
         const result = this.evaluateRule(rule, normalizedEvent);
         if (result.triggered) {
           result.notifications = rule.notifications || [];

@@ -23,12 +23,13 @@ export class EmailNotifier extends BaseNotifier {
 
     const config = normalizeConfig(channelConfig);
     let recipients: string[] = [];
-    if (payload.userEmails && payload.userEmails.length > 0) {
-      recipients = payload.userEmails;
-      console.log(`[EmailNotifier] Using ${recipients.length} organization user emails`);
-    } else if (config?.recipients && Array.isArray(config.recipients)) {
+    // Priority: channel config recipients > userEmails > env fallback
+    if (config?.recipients && Array.isArray(config.recipients) && config.recipients.length > 0) {
       recipients = config.recipients;
       console.log(`[EmailNotifier] Using ${recipients.length} recipients from channel config`);
+    } else if (payload.userEmails && payload.userEmails.length > 0) {
+      recipients = payload.userEmails;
+      console.log(`[EmailNotifier] Using ${recipients.length} organization user emails`);
     } else {
       recipients = (process.env.ALERT_EMAIL_RECIPIENTS || "").split(",").map(e => e.trim()).filter(Boolean);
       console.log(`[EmailNotifier] Using ${recipients.length} recipients from env fallback`);

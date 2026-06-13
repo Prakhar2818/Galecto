@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Key, Shield, User, Bell, Database, Globe, ChevronRight, Plus, Copy, Check, Loader2, FolderOpen, Trash2, Mail, X } from 'lucide-react';
+import { Key, Shield, User, Bell, Database, Globe, ChevronRight, Plus, Copy, Check, Loader2, FolderOpen, Trash2, Mail, X, CheckCircle2 } from 'lucide-react';
 import { apiFetch } from '@/lib/apiClient';
 import { useAuth } from '@/context/AuthContext';
 
