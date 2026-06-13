@@ -19,7 +19,11 @@
     "test:integration": "playwright test",
     "test:ui": "playwright test --ui",
     "dev:all": "npm run dev --workspaces --parallel",
-    "db:generate": "cd apps/auth-service && npx prisma generate",
+    "db:generate": "npm run db:generate:auth && npm run db:generate:alert && npm run db:generate:gateway && npm run db:generate:log",
+    "db:generate:auth": "cd apps/auth-service && npx prisma generate",
+    "db:generate:alert": "cd apps/alert-service && npx prisma generate",
+    "db:generate:gateway": "cd apps/api-gateway && npx prisma generate",
+    "db:generate:log": "cd apps/log-service && npx prisma generate",
     "db:push": "cd apps/auth-service && npx prisma db push",
     "db:migrate": "cd apps/auth-service && npx prisma migrate dev"
   },
