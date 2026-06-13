@@ -1,6 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-import { NotificationPayload } from "../notifiers/NotifierInterface";
-import { notificationService } from "../notifiers";
 
 interface Event {
   name: string;
@@ -14,13 +12,14 @@ interface Event {
   timestamp: number;
 }
 
-interface EvaluationResult {
+export interface EvaluationResult {
   triggered: boolean;
   ruleId: string;
   ruleName: string;
   severity: string;
   reason: string;
   eventData: any;
+  notifications?: any[];
 }
 
 export class RuleEvaluator {
@@ -55,16 +54,18 @@ export class RuleEvaluator {
         include: { notifications: true }
       });
 
+      console.log(`[RuleEvaluator] Found ${rules.length} matching rules for service ${normalizedEvent.service} in org ${normalizedEvent.tenantId}`);
+
       for (const rule of rules) {
         const result = this.evaluateRule(rule, normalizedEvent);
         if (result.triggered) {
+          result.notifications = rule.notifications || [];
           results.push(result);
           await this.recordExecution(rule.id, result);
-          await this.sendNotifications(rule.notifications, result);
         }
       }
     } catch (error) {
-      console.error("Error evaluating events:", error);
+      console.error("[RuleEvaluator] Error evaluating events:", error);
     }
     
     return results;
@@ -135,35 +136,9 @@ export class RuleEvaluator {
           eventData: result.eventData as any
         }
       });
-      console.log(`[AlertService] Recorded execution for rule: ${result.ruleName}`);
+      console.log(`[RuleEvaluator] Recorded execution for rule: ${result.ruleName}`);
     } catch (error) {
-      console.error(`[AlertService] Failed to record execution for rule ${ruleId}:`, error);
-    }
-  }
-
-  private async sendNotifications(notifications: any[], result: EvaluationResult): Promise<void> {
-    if (!notifications || notifications.length === 0) {
-      console.log(`[AlertService] No notification channels configured for rule: ${result.ruleName}`);
-      return;
-    }
-
-    const payload: NotificationPayload = {
-      title: result.ruleName,
-      message: result.reason,
-      severity: result.severity,
-      service: result.eventData?.service || "unknown",
-      eventData: result.eventData,
-      timestamp: new Date()
-    };
-
-    for (const notification of notifications) {
-      try {
-        console.log(`[AlertService] Sending ${notification.channelType} notification for rule: ${result.ruleName} (Severity: ${result.severity})`);
-        await notificationService.sendNotification(notification.channelType, payload);
-        console.log(`[AlertService] Successfully sent ${notification.channelType} notification`);
-      } catch (error) {
-        console.error(`[AlertService] Failed to send ${notification.channelType} notification:`, error);
-      }
+      console.error(`[RuleEvaluator] Failed to record execution for rule ${ruleId}:`, error);
     }
   }
 }

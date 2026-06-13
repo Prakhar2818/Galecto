@@ -1,11 +1,24 @@
 import { BaseNotifier, NotificationPayload } from "./NotifierInterface";
 import axios from "axios";
 
+function normalizeConfig(channelConfig?: any): any {
+  if (typeof channelConfig === 'string') {
+    try {
+      return JSON.parse(channelConfig);
+    } catch {
+      return {};
+    }
+  }
+  return channelConfig || {};
+}
+
 export class SlackNotifier extends BaseNotifier {
   async send(payload: NotificationPayload, channelConfig?: any): Promise<void> {
-    const webhookUrl = channelConfig?.webhook_url || process.env.SLACK_WEBHOOK_URL;
+    const config = normalizeConfig(channelConfig);
+    const webhookUrl = config.webhook_url;
+    console.log(`[SlackNotifier] webhook_url present=${!!webhookUrl}`);
     if (!webhookUrl) {
-      console.log(`[SlackNotifier] Webhook URL not configured, logging notification instead`);
+      console.log(`[SlackNotifier] Webhook URL not configured in channel config, logging notification instead`);
       console.log(`[SlackNotifier] Would send to Slack: ${payload.title} - ${payload.message}`);
       return;
     }
@@ -77,10 +90,11 @@ export class SlackNotifier extends BaseNotifier {
     }
   }
 
-  async test(channelConfig: { webhook_url?: string }): Promise<boolean> {
-    const webhookUrl = channelConfig.webhook_url || process.env.SLACK_WEBHOOK_URL;
+  async test(channelConfig?: any): Promise<boolean> {
+    const config = normalizeConfig(channelConfig);
+    const webhookUrl = config.webhook_url;
     if (!webhookUrl) {
-      console.log(`[SlackNotifier] No webhook URL available for test`);
+      console.log(`[SlackNotifier] No webhook URL configured in channel config for test`);
       return false;
     }
     try {

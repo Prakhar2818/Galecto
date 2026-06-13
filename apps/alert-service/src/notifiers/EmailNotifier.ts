@@ -1,6 +1,17 @@
 import { BaseNotifier, NotificationPayload } from "./NotifierInterface";
 import axios from "axios";
 
+function normalizeConfig(channelConfig?: any): any {
+  if (typeof channelConfig === 'string') {
+    try {
+      return JSON.parse(channelConfig);
+    } catch {
+      return {};
+    }
+  }
+  return channelConfig || {};
+}
+
 export class EmailNotifier extends BaseNotifier {
   async send(payload: NotificationPayload, channelConfig?: any): Promise<void> {
     const apiKey = process.env.BREVO_API_KEY;
@@ -10,12 +21,13 @@ export class EmailNotifier extends BaseNotifier {
       return;
     }
 
+    const config = normalizeConfig(channelConfig);
     let recipients: string[] = [];
     if (payload.userEmails && payload.userEmails.length > 0) {
       recipients = payload.userEmails;
       console.log(`[EmailNotifier] Using ${recipients.length} organization user emails`);
-    } else if (channelConfig?.recipients && Array.isArray(channelConfig.recipients)) {
-      recipients = channelConfig.recipients;
+    } else if (config?.recipients && Array.isArray(config.recipients)) {
+      recipients = config.recipients;
       console.log(`[EmailNotifier] Using ${recipients.length} recipients from channel config`);
     } else {
       recipients = (process.env.ALERT_EMAIL_RECIPIENTS || "").split(",").map(e => e.trim()).filter(Boolean);
@@ -102,12 +114,13 @@ export class EmailNotifier extends BaseNotifier {
     }
   }
 
-  async test(channelConfig: any): Promise<boolean> {
+  async test(channelConfig?: any): Promise<boolean> {
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) return false;
 
+    const config = normalizeConfig(channelConfig);
     try {
-      const email = channelConfig.email || "test@example.com";
+      const email = config.email || "test@example.com";
       await axios.post(
         "https://api.brevo.com/v3/smtp/email",
         {

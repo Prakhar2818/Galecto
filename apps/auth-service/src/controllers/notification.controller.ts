@@ -24,7 +24,7 @@ export class NotificationController {
         organizationId,
         type,
         name,
-        config: JSON.stringify(config),
+        config,
         enabled: true
       }
     });
@@ -39,7 +39,7 @@ export class NotificationController {
 
     const updateData: any = {};
     if (name) updateData.name = name;
-    if (config) updateData.config = JSON.stringify(config);
+    if (config) updateData.config = config;
     if (enabled !== undefined) updateData.enabled = enabled;
 
     const channel = await prisma.notificationChannel.updateMany({

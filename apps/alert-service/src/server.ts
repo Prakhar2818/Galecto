@@ -10,6 +10,7 @@ import { createConsumer } from "../../../packages/kafka/src/consumer";
 import { IEvent } from "../../../packages/api-types/src/index";
 import { notificationService } from "./notifiers";
 import { NotificationPayload } from "./notifiers/NotifierInterface";
+import { RuleEvaluator } from "./rules/RuleEvaluator";
 
 const app = Fastify({ logger: true });
 const prisma = new PrismaClient();
@@ -78,9 +79,16 @@ async function start() {
       };
     });
 
+    const ruleEvaluator = new RuleEvaluator(prisma);
+
     await createConsumer("alert-service-group", "events", async (event: IEvent) => {
-      let triggerAlert = false;
-      let reason = "";
+      console.log(`[AlertService] Received event: name=${event.name}, type=${event.type}, service=${event.service}, tenantId=${event.tenantId}`);
+
+      if (!event.tenantId || event.tenantId === "anonymous") {
+        console.log(`[AlertService] Skipping event: no valid tenantId`);
+        return;
+      }
+
       let statusCode = 0;
       let durationMs = 0;
 
@@ -89,24 +97,34 @@ async function start() {
         const traceData = event.payload?.payload || event.payload;
         statusCode = traceData?.attributes?.status || traceData?.statusCode || 0;
         durationMs = traceData?.duration || traceData?.durationMs || 0;
+        console.log(`[AlertService] SDK TRACE format: statusCode=${statusCode}, durationMs=${durationMs}`);
       }
-      // Handle direct trace format
+      // Handle direct trace format (api-gateway response logging)
       else if (event.name.includes("RESPONSE") || event.name.includes("TRACE")) {
         statusCode = event.payload?.statusCode || event.payload?.status || 0;
         durationMs = event.payload?.durationMs || event.payload?.duration || 0;
+        console.log(`[AlertService] Gateway RESPONSE/TRACE format: statusCode=${statusCode}, durationMs=${durationMs}`);
+      }
+      // Handle OTLP trace format (EventType.TRACE from otlp.controller)
+      // Only process RESPONSE/span traces, not REQUEST events (which have no status yet)
+      else if (event.type === "TRACE" && !event.name.includes("REQUEST")) {
+        const attrs = event.payload?.attributes || {};
+        // OTLP spans often carry the real HTTP status code in attributes, not the span status
+        statusCode = attrs['http.status_code'] || attrs['http.response.status_code'] || event.payload?.statusCode || 0;
+        durationMs = event.payload?.durationMs || event.payload?.duration || 0;
+        console.log(`[AlertService] OTLP TRACE format: statusCode=${statusCode}, durationMs=${durationMs}, attributes=${JSON.stringify(attrs)}`);
+      }
+      else {
+        console.log(`[AlertService] Event format not recognized for alerting: name=${event.name}, type=${event.type}`);
       }
 
-      // Extract actual error details from payload for meaningful alerts
-      let errorType = statusCode >= 400 ? 'ERROR' : 'LATENCY';
-      let endpoint = '';
-      let actualErrorMessage = '';
-
       // Extract endpoint/URL
-      endpoint = event.payload?.url || event.payload?.path || event.payload?.endpoint || 
+      const endpoint = event.payload?.url || event.payload?.path || event.payload?.endpoint || 
                  event.payload?.attributes?.['http.url'] || event.payload?.attributes?.['http.path'] || 
-                 event.payload?.route || '';
+                 event.payload?.attributes?.['http.route'] || event.payload?.route || '';
 
       // Extract actual error message from various payload shapes
+      let actualErrorMessage = '';
       if (statusCode >= 400) {
         actualErrorMessage = event.payload?.statusMessage || 
                              event.payload?.message || 
@@ -128,80 +146,158 @@ async function start() {
             // body is not JSON, keep empty
           }
         }
+      }
 
-        triggerAlert = true;
+      // Build fallback reason for hardcoded threshold logic
+      let fallbackReason = '';
+      let fallbackErrorType = statusCode >= 400 ? 'ERROR' : 'LATENCY';
+      let fallbackTriggered = false;
+
+      if (statusCode >= 400) {
+        fallbackTriggered = true;
         if (actualErrorMessage) {
-          reason = `${event.service} ${statusCode}: ${actualErrorMessage}`;
+          fallbackReason = `${event.service} ${statusCode}: ${actualErrorMessage}`;
         } else {
-          reason = `${event.service} returned HTTP ${statusCode}`;
+          fallbackReason = `${event.service} returned HTTP ${statusCode}`;
         }
         if (endpoint) {
-          reason += ` (${endpoint})`;
+          fallbackReason += ` (${endpoint})`;
         }
       }
 
       if (durationMs > 500) {
-        triggerAlert = true;
-        errorType = 'LATENCY';
+        fallbackTriggered = true;
+        fallbackErrorType = 'LATENCY';
         const latencyReason = `Latency spike: ${event.service} took ${durationMs}ms`;
         if (endpoint) {
-          reason = reason ? `${reason} | ${latencyReason} (${endpoint})` : `${latencyReason} (${endpoint})`;
+          fallbackReason = fallbackReason ? `${fallbackReason} | ${latencyReason} (${endpoint})` : `${latencyReason} (${endpoint})`;
         } else {
-          reason = reason ? `${reason} | ${latencyReason}` : latencyReason;
+          fallbackReason = fallbackReason ? `${fallbackReason} | ${latencyReason}` : latencyReason;
         }
       }
 
-      if (triggerAlert && event.tenantId) {
-        try {
-          const alert = await prisma.alert.create({
-            data: {
-              traceId: event.traceId,
-              service: event.service,
-              type: errorType,
-              message: reason,
-              status: AlertStatus.ACTIVE,
-              severity: statusCode >= 500 ? AlertSeverity.CRITICAL : statusCode >= 400 ? AlertSeverity.HIGH : AlertSeverity.MEDIUM,
-              organizationId: event.tenantId,
-            }
-          });
-          app.log.warn({ alertId: alert.id }, "ALERT TRIGGERED AND PERSISTED");
+      // Evaluate database alert rules
+      let ruleTriggered = false;
+      try {
+        const ruleResults = await ruleEvaluator.evaluateEvent({
+          name: event.name,
+          service: event.service,
+          tenantId: event.tenantId,
+          payload: { statusCode, durationMs, ...event.payload },
+          timestamp: event.timestamp
+        });
 
-          const channels = await prisma.notificationChannel.findMany({
-            where: { organizationId: event.tenantId, enabled: true }
-          });
+        if (ruleResults.length > 0) {
+          ruleTriggered = true;
+          console.log(`[AlertService] ${ruleResults.length} alert rule(s) triggered for event`);
 
-          // Get all organization users for email notifications
-          const users = await prisma.user.findMany({
-            where: { organizationId: event.tenantId },
-            select: { email: true }
-          });
-          const userEmails = users.map(u => u.email);
-
-          if (channels.length > 0) {
-            const notificationPayload: NotificationPayload = {
-              title: `Alert: ${event.service}`,
-              message: reason,
-              severity: statusCode >= 400 ? "HIGH" : "MEDIUM",
-              service: event.service,
-              eventData: event.payload,
-              timestamp: new Date(),
-              userEmails
-            };
-
-            for (const channel of channels) {
-              try {
-                await notificationService.sendNotification(channel.type, notificationPayload, channel.config);
-                console.log(`[AlertService] Sent ${channel.type} notification for alert ${alert.id}`);
-              } catch (notifError) {
-                console.error(`[AlertService] Failed to send ${channel.type} notification:`, notifError);
-              }
-            }
+          for (const result of ruleResults) {
+            const channelIds = result.notifications?.map((n: any) => n.channelId) || [];
+            await createAlertAndNotify(
+              event,
+              result.ruleName,
+              result.reason,
+              result.severity,
+              'RULE',
+              statusCode,
+              channelIds
+            );
           }
-        } catch (err) {
-          app.log.error({ err, tenantId: event.tenantId }, "Failed to persist alert");
+        } else {
+          console.log(`[AlertService] No alert rules triggered for event`);
         }
+      } catch (err) {
+        console.error(`[AlertService] Rule evaluation failed:`, err);
+      }
+
+      // Fallback: if no rules triggered and hardcoded thresholds are met, create a generic alert
+      if (!ruleTriggered && fallbackTriggered) {
+        console.log(`[AlertService] Fallback alert triggered: ${fallbackReason}`);
+        await createAlertAndNotify(
+          event,
+          `Alert: ${event.service}`,
+          fallbackReason,
+          statusCode >= 500 ? "CRITICAL" : statusCode >= 400 ? "HIGH" : "MEDIUM",
+          fallbackErrorType,
+          statusCode,
+          []
+        );
+      } else {
+        console.log(`[AlertService] Evaluated event: ruleTriggered=${ruleTriggered}, fallbackTriggered=${fallbackTriggered}, no alert created`);
       }
     });
+
+    async function createAlertAndNotify(
+      event: IEvent,
+      title: string,
+      message: string,
+      severity: string,
+      errorType: string,
+      statusCode: number,
+      channelIds: string[] = []
+    ) {
+      try {
+        const alert = await prisma.alert.create({
+          data: {
+            traceId: event.traceId,
+            service: event.service,
+            type: errorType,
+            message,
+            status: AlertStatus.ACTIVE,
+            severity: severity === "CRITICAL" ? AlertSeverity.CRITICAL : severity === "HIGH" ? AlertSeverity.HIGH : AlertSeverity.MEDIUM,
+            organizationId: event.tenantId,
+          }
+        });
+        app.log.warn({ alertId: alert.id }, "ALERT TRIGGERED AND PERSISTED");
+
+        let channels: any[];
+        if (channelIds.length > 0) {
+          channels = await prisma.notificationChannel.findMany({
+            where: { id: { in: channelIds }, organizationId: event.tenantId, enabled: true }
+          });
+          console.log(`[AlertService] Found ${channels.length} of ${channelIds.length} requested notification channels for rule alert`);
+        } else {
+          channels = await prisma.notificationChannel.findMany({
+            where: { organizationId: event.tenantId, enabled: true }
+          });
+          console.log(`[AlertService] Found ${channels.length} enabled notification channels for fallback alert`);
+        }
+
+        // Get all organization users for email notifications
+        const users = await prisma.user.findMany({
+          where: { organizationId: event.tenantId },
+          select: { email: true }
+        });
+        const userEmails = users.map(u => u.email);
+        console.log(`[AlertService] Found ${userEmails.length} organization users for email notifications`);
+
+        if (channels.length > 0) {
+          const notificationPayload: NotificationPayload = {
+            title,
+            message,
+            severity,
+            service: event.service,
+            eventData: event.payload,
+            timestamp: new Date(),
+            userEmails
+          };
+
+          for (const channel of channels) {
+            try {
+              console.log(`[AlertService] Sending ${channel.type} notification via channel ${channel.id} (${channel.name}) for alert ${alert.id}`);
+              await notificationService.sendNotification(channel.type, notificationPayload, channel.config);
+              console.log(`[AlertService] Sent ${channel.type} notification for alert ${alert.id}`);
+            } catch (notifError) {
+              console.error(`[AlertService] Failed to send ${channel.type} notification:`, notifError);
+            }
+          }
+        } else {
+          console.log(`[AlertService] No notification channels configured for org ${event.tenantId}, skipping notifications`);
+        }
+      } catch (err) {
+        app.log.error({ err, tenantId: event.tenantId }, "Failed to persist alert");
+      }
+    }
 
     app.addHook("onRequest", jwtAuthMiddleware);
 

@@ -29,6 +29,11 @@ interface AlertRule {
   conditionValue: Record<string, unknown>;
   severity: string;
   services: string[];
+  notifications?: {
+    id: string;
+    channelId: string;
+    channelType: string;
+  }[];
 }
 
 interface NotificationChannel {
@@ -74,7 +79,8 @@ export default function AlertsPage() {
     operator: '>=',
     windowMinutes: '5',
     severity: 'HIGH',
-    services: ''
+    services: '',
+    notificationChannels: [] as string[]
   });
   const [newChannel, setNewChannel] = useState({
     type: 'EMAIL' as 'EMAIL' | 'SLACK' | 'TEAMS' | 'WEBHOOK',
@@ -227,6 +233,14 @@ export default function AlertsPage() {
     try {
       const services = newRule.services.split(',').map(s => s.trim()).filter(Boolean);
 
+      const notificationChannels = newRule.notificationChannels.map(channelId => {
+        const channel = channels.find(c => c.id === channelId);
+        return {
+          channelId,
+          channelType: channel?.type || 'SLACK'
+        };
+      });
+
       const data = await apiFetch('/api/v1/platform/rules', {
         method: 'POST',
         body: JSON.stringify({
@@ -239,7 +253,8 @@ export default function AlertsPage() {
             windowMinutes: Number(newRule.windowMinutes)
           },
           severity: newRule.severity,
-          services
+          services,
+          notificationChannels: notificationChannels.length > 0 ? notificationChannels : undefined
         }),
         retries: 1
       });
@@ -257,7 +272,8 @@ export default function AlertsPage() {
           operator: '>=',
           windowMinutes: '5',
           severity: 'HIGH',
-          services: ''
+          services: '',
+          notificationChannels: []
         });
         fetchRules();
       } else {
@@ -578,15 +594,28 @@ export default function AlertsPage() {
                 rules.map((rule) => (
                   <div key={rule.id} className="border-l-2 border-emerald-500/30 pl-4 py-2 group">
                     <div className="flex items-start justify-between">
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="text-sm font-bold text-slate-100">{rule.name}</div>
                         <div className="text-[10px] text-slate-400 font-medium mt-1">
                           {rule.conditionType} • {rule.severity}
                         </div>
+                        {rule.notifications && rule.notifications.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            {rule.notifications.map((n, i) => (
+                              <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-800 rounded text-[10px] text-slate-300">
+                                {n.channelType === 'EMAIL' && <Mail className="w-3 h-3" />}
+                                {n.channelType === 'SLACK' && <MessageSquare className="w-3 h-3" />}
+                                {n.channelType === 'TEAMS' && <MessageSquare className="w-3 h-3" />}
+                                {n.channelType === 'WEBHOOK' && <Webhook className="w-3 h-3" />}
+                                {channels.find(c => c.id === n.channelId)?.name || n.channelType}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => handleDeleteRule(rule.id)}
-                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"
+                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity flex-shrink-0 ml-2"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -873,6 +902,40 @@ export default function AlertsPage() {
                     <option value="LOW">Low</option>
                   </select>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Notification Channels</label>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {channels.length === 0 ? (
+                    <p className="text-xs text-slate-400">No channels configured. Create one in Alert Settings first.</p>
+                  ) : (
+                    channels.map((channel) => (
+                      <label key={channel.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100">
+                        <input
+                          type="checkbox"
+                          checked={newRule.notificationChannels.includes(channel.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewRule({ ...newRule, notificationChannels: [...newRule.notificationChannels, channel.id] });
+                            } else {
+                              setNewRule({ ...newRule, notificationChannels: newRule.notificationChannels.filter(id => id !== channel.id) });
+                            }
+                          }}
+                          className="w-4 h-4 text-emerald-500 rounded border-slate-300 focus:ring-emerald-500"
+                        />
+                        <div className="flex items-center gap-2">
+                          {channel.type === 'EMAIL' && <Mail className="w-4 h-4 text-blue-500" />}
+                          {channel.type === 'SLACK' && <MessageSquare className="w-4 h-4 text-purple-500" />}
+                          {channel.type === 'TEAMS' && <MessageSquare className="w-4 h-4 text-indigo-500" />}
+                          {channel.type === 'WEBHOOK' && <Webhook className="w-4 h-4 text-slate-500" />}
+                          <span className="text-sm font-medium text-slate-700">{channel.name}</span>
+                          <span className="text-xs text-slate-400">({channel.type})</span>
+                        </div>
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Select which channels should receive alerts for this rule</p>
               </div>
             </div>
             <div className="flex gap-3 mt-6">

@@ -22,6 +22,14 @@ enum AlertSeverity {
   INFO
 }
 
+enum NotificationType {
+  EMAIL
+  SLACK
+  TEAMS
+  WEBHOOK
+  PAGERDUTY
+}
+
 model Alert {
   id             String        @id @default(uuid())
   traceId        String
@@ -38,13 +46,13 @@ model Alert {
 }
 
 model NotificationChannel {
-  id             String   @id @default(uuid())
+  id             String           @id @default(uuid())
   organizationId String
-  type           String
+  type           NotificationType
   name           String
   config         Json
-  enabled        Boolean  @default(true)
-  createdAt      DateTime @default(now())
+  enabled        Boolean          @default(true)
+  createdAt      DateTime         @default(now())
 }
 
 model AlertRule {
@@ -66,12 +74,12 @@ model AlertRule {
 }
 
 model AlertNotification {
-  id          String    @id @default(uuid())
+  id          String           @id @default(uuid())
   alertRuleId String
-  alertRule   AlertRule @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
-  channelType String
+  alertRule   AlertRule        @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  channelType NotificationType
   channelId   String
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime         @default(now())
   @@index([alertRuleId])
 }
 
