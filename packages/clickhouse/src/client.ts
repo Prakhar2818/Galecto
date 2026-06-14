@@ -37,9 +37,19 @@ export async function initializeClickHouseSchemas() {
         timestamp DateTime64(3),
         payload String,
         duration_ms UInt32,
-        status_code UInt16
+        status_code UInt16,
+        session_id String
       ) ENGINE = MergeTree()
       ORDER BY (tenant_id, timestamp, trace_id, span_id)
     `
   });
+
+  // Migrate existing tables: add session_id if not present
+  try {
+    await clickhouse.exec({
+      query: `ALTER TABLE ${database}.events ADD COLUMN IF NOT EXISTS session_id String`
+    });
+  } catch (e) {
+    // Column may already exist; ignore
+  }
 }

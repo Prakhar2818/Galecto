@@ -36,7 +36,8 @@ export class TraceController {
             argMin(event_name, timestamp) as root_event,
             argMin(payload, timestamp) as root_payload,
             argMin(status_code, timestamp) as root_status_code,
-            argMin(parent_span_id, timestamp) as root_parent_span_id
+            argMin(parent_span_id, timestamp) as root_parent_span_id,
+            max(session_id) as session_id
           FROM events
           WHERE tenant_id = {tenantId:String}
           GROUP BY trace_id
@@ -103,6 +104,7 @@ export class TraceController {
           status_code: statusCode,
           endpoint,
           display_name: displayName,
+          sessionId: t.session_id || '',
           // Format services as unique array
           services: Array.isArray(t.services) ? [...new Set(t.services)] : []
         };

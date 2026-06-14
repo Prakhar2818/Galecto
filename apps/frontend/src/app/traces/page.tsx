@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import TraceGraph from '@/components/TraceGraph';
-import { Activity, RefreshCw, X, ChevronRight, Search, Filter, Loader2, AlertCircle } from 'lucide-react';
+import { Activity, RefreshCw, X, ChevronRight, Search, Filter, Loader2, AlertCircle, Video } from 'lucide-react';
 import { queryFetch, ApiError } from '@/lib/apiClient';
 
 interface Trace {
@@ -18,6 +18,7 @@ interface Trace {
   status_code?: number;
   endpoint?: string;
   display_name?: string;
+  sessionId?: string;
 }
 
 interface TraceEvent {
@@ -97,6 +98,14 @@ export default function TracesPage() {
       router.push(`/replay?traceId=${encodeURIComponent(selectedTrace)}`);
     }
   }, [selectedTrace, router]);
+
+  const handlePlaySessionReplay = useCallback(() => {
+    if (selectedTrace) {
+      router.push(`/replay?traceId=${encodeURIComponent(selectedTrace)}&tab=session`);
+    }
+  }, [selectedTrace, router]);
+
+  const selectedTraceData = traces.find((t) => t.trace_id === selectedTrace);
 
   const fetchTraces = useCallback(async (isBackground = false, page = 1) => {
     if (!isBackground) setLoading(true);
@@ -458,13 +467,24 @@ export default function TracesPage() {
                   </div>
                   <Activity className="w-8 h-8 opacity-40" />
                 </div>
-                <button
-                  onClick={handleRunReplay}
-                  disabled={!selectedTrace}
-                  className="px-8 py-6 bg-slate-900 text-white font-bold rounded-3xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Run Replay
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={handleRunReplay}
+                    disabled={!selectedTrace}
+                    className="px-8 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    Run Replay
+                  </button>
+                  <button
+                    onClick={handlePlaySessionReplay}
+                    disabled={!selectedTrace || !selectedTraceData?.sessionId}
+                    className="px-8 py-3 bg-slate-700 text-white font-bold rounded-2xl hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
+                    title={selectedTraceData?.sessionId ? "Play Session Replay" : "No session replay available for this trace"}
+                  >
+                    <Video className="w-4 h-4" />
+                    Session Replay
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -28,6 +28,7 @@ model Organization {
   alertRules      AlertRule[]
   invitations   Invitation[]
   favorites     Favorite[]
+  sessionReplays SessionReplay[]
 }
 
 model DeployMarker {
@@ -309,4 +310,29 @@ model Favorite {
   @@unique([userId, itemType, itemId])
   @@index([userId])
   @@index([organizationId])
+}
+
+model SessionReplay {
+  id             String   @id @default(uuid())
+  sessionId      String   @unique
+  traceId        String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String?
+  url            String?
+  userAgent      String?
+  startTime      DateTime
+  endTime        DateTime?
+  durationMs     Int?
+  eventCount     Int
+  sizeBytes      Int
+  minioPath      String
+  status         String   @default("RECORDING")
+  hasError       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([traceId])
+  @@index([sessionId])
 }

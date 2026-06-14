@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { ReplayController } from "../controllers/replay.controller";
 import { OtlpController } from "../controllers/otlp.controller";
+import { SessionReplayController } from "../controllers/session-replay.controller";
 
 const prisma = new PrismaClient();
 
@@ -23,6 +24,7 @@ export async function routes(fastify: FastifyInstance) {
   const controller = new HealthController();
   const replayController = new ReplayController();
   const otlpController = new OtlpController();
+  const sessionReplayController = new SessionReplayController();
 
   fastify.get("/health", async () => {
     return controller.getHealth();
@@ -45,6 +47,39 @@ export async function routes(fastify: FastifyInstance) {
     "/v1/logs",
     { preHandler: [authMiddleware] },
     async (request, reply) => otlpController.receiveLogs(request, reply)
+  );
+
+  // Session Replay endpoints
+  fastify.post(
+    "/api/v1/session-replay/record",
+    { preHandler: [authMiddleware] },
+    async (request, reply) => {
+      return sessionReplayController.record(request, reply);
+    }
+  );
+
+  fastify.get(
+    "/api/v1/session-replay/:sessionId",
+    { preHandler: [jwtAuthMiddleware] },
+    async (request, reply) => {
+      return sessionReplayController.get(request, reply);
+    }
+  );
+
+  fastify.get(
+    "/api/v1/session-replay/by-trace/:traceId",
+    { preHandler: [jwtAuthMiddleware] },
+    async (request, reply) => {
+      return sessionReplayController.getByTrace(request, reply);
+    }
+  );
+
+  fastify.delete(
+    "/api/v1/session-replay/:sessionId",
+    { preHandler: [jwtAuthMiddleware] },
+    async (request, reply) => {
+      return sessionReplayController.delete(request, reply);
+    }
   );
 
   fastify.get(
@@ -125,6 +160,7 @@ export async function routes(fastify: FastifyInstance) {
     async (request, reply) => {
       const organizationId = (request as any).organizationId;
       const payload = request.body as any;
+      const sessionId = (request.headers["x-galecto-session-id"] as string) || undefined;
 
       const event: IEvent = {
         eventId: uuidv4(),
@@ -136,6 +172,7 @@ export async function routes(fastify: FastifyInstance) {
         name: "INGEST_LOG",
         timestamp: Date.now(),
         payload: payload,
+        sessionId,
       };
 
       await sendEvent("events", event);

@@ -27,6 +27,7 @@ model Organization {
   apiKeyAuditLogs ApiKeyAuditLog[]
   alertRules      AlertRule[]
   invitations   Invitation[]
+  sessionReplays SessionReplay[]
 }
 
 model DeployMarker {
@@ -293,4 +294,29 @@ model AlertExecution {
   status      String   // TRIGGERED, RESOLVED
   eventData   Json
   @@index([alertRuleId, triggeredAt])
+}
+
+model SessionReplay {
+  id             String   @id @default(uuid())
+  sessionId      String   @unique
+  traceId        String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String?
+  url            String?
+  userAgent      String?
+  startTime      DateTime
+  endTime        DateTime?
+  durationMs     Int?
+  eventCount     Int
+  sizeBytes      Int
+  minioPath      String
+  status         String   @default("RECORDING")
+  hasError       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([traceId])
+  @@index([sessionId])
 }

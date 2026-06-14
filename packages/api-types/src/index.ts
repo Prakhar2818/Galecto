@@ -358,6 +358,7 @@ export interface Trace {
   status_code?: number;
   endpoint?: string;
   display_name?: string;
+  sessionId?: string;
 }
 
 export interface TraceDetail {
@@ -466,4 +467,42 @@ export interface IEvent {
   name: string;
   timestamp: number;
   payload: Record<string, any>;
+  sessionId?: string;
+}
+
+// ============================================
+// Session Replay Types
+// ============================================
+
+export interface SessionReplay {
+  id: string;
+  sessionId: string;
+  traceId?: string;
+  organizationId: string;
+  userId?: string;
+  url?: string;
+  userAgent?: string;
+  startTime: string;
+  endTime?: string;
+  durationMs?: number;
+  eventCount: number;
+  sizeBytes: number;
+  minioPath: string;
+  status: string;
+  hasError: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SessionReplayRecordRequest {
+  sessionId: string;
+  traceId?: string;
+  events: any[];
+  metadata: {
+    url?: string;
+    userAgent?: string;
+    startTime: number;
+    endTime?: number;
+    hasError: boolean;
+  };
 }

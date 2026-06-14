@@ -1,3 +1,5 @@
+import { SessionReplayConfig, SessionReplayManager } from "./session-replay";
+
 export interface GalectoConfig {
   apiKey: string;
   service: string;
@@ -7,6 +9,8 @@ export interface GalectoConfig {
   maxRetries?: number;
   sampleRate?: number;
   timeout?: number;
+  sessionReplay?: SessionReplayConfig;
+  traceId?: string;
 }
 
 export interface LogPayload {
@@ -42,6 +46,7 @@ export class Galecto {
   private queue: QueuedEvent[] = [];
   private flushTimer: NodeJS.Timeout | null = null;
   private destroyed: boolean = false;
+  private sessionReplay: SessionReplayManager | null = null;
 
   constructor(config: GalectoConfig) {
     this.apiKey = config.apiKey;
@@ -58,7 +63,26 @@ export class Galecto {
       this.enabled = false;
     }
 
+    if (config.sessionReplay?.enabled) {
+      this.sessionReplay = new SessionReplayManager(
+        config.sessionReplay,
+        this.baseUrl,
+        this.apiKey,
+        this.service,
+        config.traceId
+      );
+      this.sessionReplay.start();
+    }
+
     this.startFlushTimer();
+  }
+
+  getSessionId(): string | null {
+    return this.sessionReplay?.getSessionId() || null;
+  }
+
+  setTraceId(traceId: string): void {
+    this.sessionReplay?.setTraceId(traceId);
   }
 
   private startFlushTimer(): void {
@@ -78,13 +102,18 @@ export class Galecto {
 
   private async sendWithRetry(event: QueuedEvent, attempt: number): Promise<void> {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.apiKey}`,
+        "x-service": this.service
+      };
+      if (this.sessionReplay) {
+        headers["x-galecto-session-id"] = this.sessionReplay.getSessionId();
+      }
+
       const response = await fetch(`${this.baseUrl}/api/v1/ingest`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.apiKey}`,
-          "x-service": this.service
-        },
+        headers,
         body: JSON.stringify({
           service: this.service,
           event: event.type,
@@ -134,6 +163,7 @@ export class Galecto {
   }
 
   error(message: string, payload?: Record<string, any>) {
+    this.sessionReplay?.flagError();
     this.log({ level: "error", message, payload });
   }
 
@@ -205,6 +235,9 @@ export class Galecto {
       clearInterval(this.flushTimer);
     }
     await this.flush();
+    if (this.sessionReplay) {
+      await this.sessionReplay.stop();
+    }
   }
 }
 

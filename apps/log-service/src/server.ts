@@ -54,6 +54,7 @@ async function start() {
               payload: JSON.stringify(event.payload),
               duration_ms: durationMs,
               status_code: statusCode,
+              session_id: event.sessionId || "",
             }
           ],
           format: 'JSONEachRow',

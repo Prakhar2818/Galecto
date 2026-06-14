@@ -1,6 +1,7 @@
 import "dotenv/config";
 import "./config/env";
 import { buildApp } from "./app";
+import { startSessionReplayCleanup } from "./services/session-replay-cleanup";
 
 async function start() {
   const app = buildApp();
@@ -9,6 +10,9 @@ async function start() {
     const port = Number(process.env.PORT) || 3001;
     await app.listen({ port, host: "0.0.0.0" });
     console.log(`API Gateway running on port ${port}`);
+
+    // Start session replay cleanup worker
+    startSessionReplayCleanup();
   } catch (err) {
     app.log.error(err);
     process.exit(1);

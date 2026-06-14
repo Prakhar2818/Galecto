@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import {
   RotateCcw, Play, History, CheckCircle2,
-  AlertCircle, ChevronRight, Zap, Loader2, Database, X, RefreshCw, AlertTriangle
+  AlertCircle, ChevronRight, Zap, Loader2, Database, X, RefreshCw, AlertTriangle, Video, Activity
 } from 'lucide-react';
 import { queryFetch, apiFetch, ApiError } from '@/lib/apiClient';
 import TraceGraph from '@/components/TraceGraph';
+import SessionReplayPlayer from '@/components/SessionReplayPlayer';
 
 interface Anomaly {
   trace_id: string;
@@ -73,7 +75,11 @@ function buildTree(events: TraceEvent[]): TraceEvent[] {
   return roots;
 }
 
-export default function ReplayPage() {
+function ReplayPageContent() {
+  const searchParams = useSearchParams();
+  const urlTraceId = searchParams.get('traceId');
+  const urlTab = searchParams.get('tab');
+
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [history, setHistory] = useState<ReplayExecution[]>([]);
   const [selectedAnomaly, setSelectedAnomaly] = useState<Anomaly | null>(null);
@@ -85,8 +91,13 @@ export default function ReplayPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [traceError, setTraceError] = useState<ErrorState | null>(null);
+  const [activeTab, setActiveTab] = useState<'request' | 'session'>('request');
+  const [sessionReplayData, setSessionReplayData] = useState<any>(null);
+  const [sessionReplayLoading, setSessionReplayLoading] = useState(false);
+  const [sessionReplayError, setSessionReplayError] = useState<ErrorState | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  const urlSelectionProcessed = useRef(false);
 
   const fetchAnomalies = useCallback(async (isBackground = false) => {
     if (!isBackground) setLoading(true);
@@ -162,6 +173,48 @@ export default function ReplayPage() {
     };
   }, [fetchData, loading, executing]);
 
+  const handleFetchSessionReplay = useCallback(async (traceId: string) => {
+    setSessionReplayLoading(true);
+    setSessionReplayError(null);
+    setSessionReplayData(null);
+
+    try {
+      const metaData = await apiFetch(`/api/v1/session-replay/by-trace/${traceId}`, { retries: 1 });
+      if (!isMountedRef.current) return;
+
+      if (!metaData.success || !metaData.data) {
+        setSessionReplayError({
+          message: 'No session replay recorded for this trace. Enable sessionReplay in the SDK.',
+          retryable: false,
+        });
+        setSessionReplayLoading(false);
+        return;
+      }
+
+      const sessionId = metaData.data.sessionId;
+      const fullData = await apiFetch(`/api/v1/session-replay/${sessionId}`, { retries: 1 });
+      if (!isMountedRef.current) return;
+
+      if (fullData.success && fullData.data) {
+        setSessionReplayData(fullData.data);
+      } else {
+        setSessionReplayError({
+          message: fullData.error?.message || 'Failed to load session replay',
+          retryable: true,
+        });
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      const apiError = err instanceof ApiError ? err : new ApiError('Network error', 0);
+      setSessionReplayError({
+        message: apiError.message,
+        retryable: true,
+      });
+    } finally {
+      if (isMountedRef.current) setSessionReplayLoading(false);
+    }
+  }, []);
+
   const handleSelectAnomaly = useCallback(async (anomaly: Anomaly) => {
     setSelectedAnomaly(anomaly);
     setOriginalTree(null);
@@ -195,6 +248,31 @@ export default function ReplayPage() {
       });
     }
   }, []);
+
+  useEffect(() => {
+    if (urlTab === 'session') {
+      setActiveTab('session');
+    }
+  }, [urlTab]);
+
+  useEffect(() => {
+    if (urlTraceId && anomalies.length > 0 && !selectedAnomaly && !urlSelectionProcessed.current) {
+      const matchingAnomaly = anomalies.find(a => a.trace_id === urlTraceId);
+      if (matchingAnomaly) {
+        urlSelectionProcessed.current = true;
+        handleSelectAnomaly(matchingAnomaly);
+      }
+    }
+  }, [urlTraceId, anomalies, selectedAnomaly, handleSelectAnomaly]);
+
+  useEffect(() => {
+    if (activeTab === 'session' && !sessionReplayData && !sessionReplayLoading) {
+      const traceId = selectedAnomaly?.trace_id || urlTraceId;
+      if (traceId) {
+        handleFetchSessionReplay(traceId);
+      }
+    }
+  }, [activeTab, selectedAnomaly, urlTraceId, sessionReplayData, sessionReplayLoading, handleFetchSessionReplay]);
 
   const handleExecuteReplay = useCallback(async () => {
     if (!selectedAnomaly) return;
@@ -268,6 +346,9 @@ export default function ReplayPage() {
     setOriginalTree(null);
     setReplayTree(null);
     setTraceError(null);
+    setActiveTab('request');
+    setSessionReplayData(null);
+    setSessionReplayError(null);
   };
 
   const getDuration = (start: string, end?: string): number => {
@@ -425,59 +506,121 @@ export default function ReplayPage() {
                 </div>
               )}
 
-              {/* Visualization Grids */}
-              <div className="grid grid-cols-2 gap-6">
-                {/* Original Trace */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 h-[600px] flex flex-col shadow-sm">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-slate-100 rounded-lg text-slate-600"><History size={16} /></div>
-                    <span className="text-xs font-black uppercase tracking-widest text-slate-400">Original Request Flow</span>
-                  </div>
-                  <div className="flex-grow bg-slate-50/50 rounded-3xl border border-slate-50 relative overflow-hidden">
-                    {originalTree && originalTree.length > 0 ? (
-                      <TraceGraph tree={originalTree} />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center text-slate-400">
-                          <Database className="w-10 h-10 mx-auto mb-4 opacity-30" />
-                          <p className="text-sm">Loading trace tree...</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+              {/* Tabs */}
+              <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                <div className="flex items-center gap-4 mb-6 border-b border-slate-100 pb-4">
+                  <button
+                    onClick={() => setActiveTab('request')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
+                      activeTab === 'request'
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <Activity size={14} />
+                    Request Replay
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('session')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
+                      activeTab === 'session'
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <Video size={14} />
+                    Session Replay
+                  </button>
                 </div>
 
-                {/* Replay Trace */}
-                <div className={`bg-white rounded-[2.5rem] border-2 ${replayTree ? 'border-emerald-500/30' : 'border-dashed border-slate-200'} p-8 h-[600px] flex flex-col shadow-sm transition-all`}>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={`p-2 ${replayTree ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'} rounded-lg transition-all`}>
-                      <RotateCcw size={16} />
+                {activeTab === 'request' ? (
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Original Trace */}
+                    <div className="bg-slate-50/50 rounded-3xl border border-slate-50 p-6 h-[520px] flex flex-col">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-slate-100 rounded-lg text-slate-600"><History size={16} /></div>
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-400">Original Request Flow</span>
+                      </div>
+                      <div className="flex-grow relative overflow-hidden">
+                        {originalTree && originalTree.length > 0 ? (
+                          <TraceGraph tree={originalTree} />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center text-slate-400">
+                              <Database className="w-10 h-10 mx-auto mb-4 opacity-30" />
+                              <p className="text-sm">Loading trace tree...</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs font-black uppercase tracking-widest text-slate-400">Replay Results</span>
-                    {replayTree && (
-                      <span className="ml-auto px-2 py-1 bg-emerald-100 text-emerald-600 text-[8px] font-black rounded uppercase">
-                        Success
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-grow bg-slate-50/50 rounded-3xl border border-slate-50 relative overflow-hidden flex items-center justify-center">
-                    {executing ? (
-                      <div className="flex flex-col items-center gap-4">
-                        <Zap className="w-10 h-10 text-emerald-500 animate-pulse" />
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Warming up nodes...</span>
+
+                    {/* Replay Trace */}
+                    <div className={`bg-slate-50/50 rounded-3xl border ${replayTree ? 'border-emerald-500/30' : 'border-dashed border-slate-200'} p-6 h-[520px] flex flex-col transition-all`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`p-2 ${replayTree ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'} rounded-lg transition-all`}>
+                          <RotateCcw size={16} />
+                        </div>
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-400">Replay Results</span>
+                        {replayTree && (
+                          <span className="ml-auto px-2 py-1 bg-emerald-100 text-emerald-600 text-[8px] font-black rounded uppercase">
+                            Success
+                          </span>
+                        )}
                       </div>
-                    ) : replayTree ? (
-                      <TraceGraph tree={replayTree} />
+                      <div className="flex-grow relative overflow-hidden flex items-center justify-center">
+                        {executing ? (
+                          <div className="flex flex-col items-center gap-4">
+                            <Zap className="w-10 h-10 text-emerald-500 animate-pulse" />
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Warming up nodes...</span>
+                          </div>
+                        ) : replayTree ? (
+                          <TraceGraph tree={replayTree} />
+                        ) : (
+                          <div className="text-center p-10">
+                            <Database className="w-10 h-10 text-slate-200 mx-auto mb-4" />
+                            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed">
+                              Execute a replay to see<br />shadow results here.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-[540px]">
+                    {sessionReplayLoading ? (
+                      <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                        <Loader2 className="w-8 h-8 animate-spin mb-4" />
+                        <p className="text-sm font-medium">Loading session replay...</p>
+                      </div>
+                    ) : sessionReplayError ? (
+                      <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                        <AlertTriangle className="w-10 h-10 mb-4 opacity-40" />
+                        <p className="text-sm font-medium">{sessionReplayError.message}</p>
+                        {sessionReplayError.retryable && (
+                          <button
+                            onClick={() => selectedAnomaly && handleFetchSessionReplay(selectedAnomaly.trace_id)}
+                            className="mt-4 px-4 py-2 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-400 transition-colors"
+                          >
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    ) : sessionReplayData ? (
+                      <SessionReplayPlayer
+                        events={sessionReplayData.events}
+                        metadata={sessionReplayData.metadata}
+                      />
                     ) : (
-                      <div className="text-center p-10">
-                        <Database className="w-10 h-10 text-slate-200 mx-auto mb-4" />
-                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed">
-                          Execute a replay to see<br />shadow results here.
-                        </p>
+                      <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                        <Video className="w-10 h-10 mb-4 opacity-40" />
+                        <p className="text-sm font-medium">No session replay available</p>
+                        <p className="text-xs mt-1">Enable sessionReplay in the SDK to record user sessions.</p>
                       </div>
                     )}
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Close button */}
@@ -549,5 +692,20 @@ export default function ReplayPage() {
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+export default function ReplayPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+          <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Loading Replay...</span>
+        </div>
+      </div>
+    }>
+      <ReplayPageContent />
+    </Suspense>
   );
 }

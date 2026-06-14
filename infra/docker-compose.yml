@@ -79,9 +79,43 @@ services:
     networks:
       - galecto-network
 
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - galecto-network
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/galecto-session-replays || true;
+      /usr/bin/mc policy set public myminio/galecto-session-replays || true;
+      exit 0;
+      "
+    networks:
+      - galecto-network
+
 volumes:
   postgres_data:
   clickhouse_data:
+  minio_data:
 
 networks:
   galecto-network:
